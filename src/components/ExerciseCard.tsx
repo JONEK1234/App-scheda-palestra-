@@ -19,6 +19,7 @@ interface ExerciseCardProps {
   exerciseIndex: number;
   setLogs: StoredSetLog[];
   onUpdateSetLog: (exerciseId: string, setIndex: number, log: Partial<StoredSetLog>) => void;
+  onApplyWeightToAllSets?: (exerciseId: string, weight: string) => void;
   onOpenTutorial: (exercise: Exercise) => void;
   onTriggerRestTimer: (restSeconds: number) => void;
   accentColor?: string;
@@ -29,6 +30,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exerciseIndex,
   setLogs,
   onUpdateSetLog,
+  onApplyWeightToAllSets,
   onOpenTutorial,
   onTriggerRestTimer,
   accentColor = '#ef4444'
@@ -36,6 +38,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   // Local state for countdown on time-based exercises (Tappeto, Plank, Cyclette, Vogatore)
   const [timeRemaining, setTimeRemaining] = useState<number>(exercise.timeDurationSeconds || 0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
+
+  // Sync timer if duration changes
+  React.useEffect(() => {
+    setTimeRemaining(exercise.timeDurationSeconds || 0);
+  }, [exercise.timeDurationSeconds]);
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -221,17 +228,54 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           </div>
         ) : (
           /* Sets & Reps Table */
-          <div className="space-y-2">
+          <div className="space-y-2.5">
+            {/* Weight note if defined (e.g. Rematore Manubri 5kg però aumenta) */}
+            {exercise.weightNote && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{exercise.weightNote}</span>
+                </span>
+                {onApplyWeightToAllSets && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(setLogs[0]?.weight || String(exercise.defaultWeightKg || 5)) || 5;
+                      onApplyWeightToAllSets(exercise.id, String(current + 1));
+                    }}
+                    className="px-2 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                    title="Aumenta di 1 kg su tutte le serie"
+                  >
+                    <span>+1 kg a tutte</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between px-1 text-[11px] text-zinc-400">
+              <span className="font-bold uppercase tracking-wider">Tabella Serie & Carichi</span>
+              {exercise.setsCount > 1 && onApplyWeightToAllSets && setLogs[0]?.weight && (
+                <button
+                  type="button"
+                  onClick={() => onApplyWeightToAllSets(exercise.id, setLogs[0]?.weight)}
+                  className="text-red-400 hover:text-red-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                  title="Applica il carico della Serie 1 a tutte le serie"
+                >
+                  <span>Applica {setLogs[0]?.weight}kg a tutte</span>
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 px-2 pb-1">
               <span className="col-span-3">Serie</span>
-              <span className="col-span-3 text-center">Carico (kg)</span>
-              <span className="col-span-3 text-center">Reps fatte</span>
-              <span className="col-span-3 text-right">Fatto</span>
+              <span className="col-span-4 sm:col-span-3 text-center">Carico (kg)</span>
+              <span className="col-span-3 sm:col-span-3 text-center">Reps</span>
+              <span className="col-span-2 sm:col-span-3 text-right">Fatto</span>
             </div>
 
             {Array.from({ length: exercise.setsCount }).map((_, sIdx) => {
               const currentLog = setLogs[sIdx] || {
-                weight: '',
+                weight: exercise.defaultWeightKg !== undefined ? String(exercise.defaultWeightKg) : '',
                 reps: String(exercise.defaultReps).split('+')[0].trim(),
                 completed: false
               };
@@ -253,24 +297,47 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     </span>
                   </div>
 
-                  {/* Weight Input */}
-                  <div className="col-span-3 flex justify-center">
-                    <div className="relative w-full max-w-[80px]">
-                      <input
-                        type="number"
-                        placeholder="kg"
-                        value={currentLog.weight}
-                        onChange={(e) =>
-                          onUpdateSetLog(exercise.id, sIdx, { weight: e.target.value })
-                        }
-                        className="w-full text-center bg-zinc-950/80 border border-zinc-800 focus:border-red-500 rounded-lg py-1 text-xs font-mono font-bold text-white focus:outline-none"
-                      />
-                    </div>
+                  {/* Weight Input with quick stepper buttons */}
+                  <div className="col-span-4 sm:col-span-3 flex items-center justify-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentVal = parseFloat(currentLog.weight || '0') || 0;
+                        const nextVal = Math.max(0, currentVal - 1);
+                        onUpdateSetLog(exercise.id, sIdx, { weight: nextVal === 0 ? '' : String(nextVal) });
+                      }}
+                      className="w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                      title="-1 kg"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder={exercise.defaultWeightKg !== undefined ? String(exercise.defaultWeightKg) : 'kg'}
+                      value={currentLog.weight}
+                      onChange={(e) =>
+                        onUpdateSetLog(exercise.id, sIdx, { weight: e.target.value })
+                      }
+                      className="w-12 sm:w-14 text-center bg-zinc-950/80 border border-zinc-800 focus:border-red-500 rounded-lg py-1 text-xs font-mono font-bold text-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentVal = parseFloat(currentLog.weight || '0') || 0;
+                        const nextVal = currentVal + 1;
+                        onUpdateSetLog(exercise.id, sIdx, { weight: String(nextVal) });
+                      }}
+                      className="w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                      title="+1 kg"
+                    >
+                      +
+                    </button>
                   </div>
 
                   {/* Reps Input */}
-                  <div className="col-span-3 flex justify-center">
-                    <div className="relative w-full max-w-[80px]">
+                  <div className="col-span-3 sm:col-span-3 flex justify-center">
+                    <div className="relative w-full max-w-[70px]">
                       <input
                         type="text"
                         placeholder={String(exercise.defaultReps)}
@@ -284,7 +351,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   </div>
 
                   {/* Complete Checkbox & Rest trigger */}
-                  <div className="col-span-3 flex items-center justify-end gap-1.5">
+                  <div className="col-span-2 sm:col-span-3 flex items-center justify-end gap-1.5">
                     <button
                       onClick={() => {
                         const newCompleted = !currentLog.completed;
@@ -307,18 +374,21 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               );
             })}
 
-            {/* Quick Rest Note */}
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1.5 px-2">
+            {/* Quick Rest Note & Persistence notification */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-zinc-400 pt-1.5 px-2 gap-1">
               <span className="flex items-center gap-1">
                 <Timer className="w-3 h-3 text-red-500" />
                 <span>Recupero consigliato: <strong>{exercise.defaultRestSeconds}s</strong></span>
               </span>
-              <button
-                onClick={() => onTriggerRestTimer(exercise.defaultRestSeconds)}
-                className="text-red-400 hover:text-red-300 font-semibold cursor-pointer"
-              >
-                Avvia timer ({exercise.defaultRestSeconds}s)
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-zinc-400">💾 Salvataggio kg automatico</span>
+                <button
+                  onClick={() => onTriggerRestTimer(exercise.defaultRestSeconds)}
+                  className="text-red-400 hover:text-red-300 font-semibold cursor-pointer"
+                >
+                  Avvia timer ({exercise.defaultRestSeconds}s)
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -21,6 +21,8 @@ export interface Exercise {
   supersetNote?: string;
   setsCount: number;
   defaultReps: number | string;
+  defaultWeightKg?: number | string;
+  weightNote?: string;
   defaultRestSeconds: number;
   gripType: string; // "Presa prona", "Presa neutra", "Presa inversa / supina", etc.
   setupDescription: string;

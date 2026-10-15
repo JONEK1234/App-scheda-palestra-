@@ -37,6 +37,14 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
               </h2>
               <span className="text-xs text-zinc-400 font-medium">
                 {exercise.category} • <strong className="text-zinc-200">{exercise.prescription}</strong>
+                {exercise.defaultWeightKg && (
+                  <span> • Carico: <strong className="text-red-400">{exercise.defaultWeightKg} kg</strong></span>
+                )}
+                {exercise.weightNote && (
+                  <span className="block text-amber-400 text-[11px] font-semibold mt-0.5">
+                    ⚡ {exercise.weightNote}
+                  </span>
+                )}
               </span>
             </div>
           </div>

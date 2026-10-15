@@ -11,6 +11,7 @@ import {
   StoredSetLog 
 } from './types/workout';
 import { Header } from './components/Header';
+import { BodyWeightWidget } from './components/BodyWeightWidget';
 import { DaySelector } from './components/DaySelector';
 import { ExerciseCard } from './components/ExerciseCard';
 import { ExerciseModal } from './components/ExerciseModal';
@@ -29,28 +30,84 @@ import {
 
 const STORAGE_KEY = 'ironroutine_user_logs_v1';
 
+// Initialize logs with default sets and weights, merging with user's saved data
+function getInitialWorkoutLogs(): WorkoutSessionLogs {
+  let saved: WorkoutSessionLogs = {};
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) saved = JSON.parse(raw);
+  } catch {
+    saved = {};
+  }
+
+  const result: WorkoutSessionLogs = { ...saved };
+
+  WORKOUT_DAYS.forEach((day) => {
+    day.exercises.forEach((ex) => {
+      const setsCount = ex.isTimeBased ? 1 : ex.setsCount;
+      const currentSets = result[ex.id] ? [...result[ex.id]] : [];
+
+      for (let i = 0; i < setsCount; i++) {
+        const existingSet = currentSets[i];
+        if (!existingSet) {
+          currentSets[i] = {
+            reps: String(ex.defaultReps).split('+')[0].trim(),
+            weight: ex.defaultWeightKg !== undefined ? String(ex.defaultWeightKg) : '',
+            completed: false,
+          };
+        } else if (
+          ex.defaultWeightKg !== undefined &&
+          (existingSet.weight === '' || existingSet.weight === undefined)
+        ) {
+          // Pre-populate with default weight if not set by user
+          currentSets[i] = {
+            ...existingSet,
+            weight: String(ex.defaultWeightKg),
+          };
+        }
+      }
+      result[ex.id] = currentSets;
+    });
+  });
+
+  return result;
+}
+
 export default function App() {
   // Auto-detect initial day based on real-world today
   const [selectedDayId, setSelectedDayId] = useState<DayOfWeekId>(() => getTodayWorkoutDayId());
   
   // Stored sets and logs: exerciseId -> StoredSetLog[]
-  const [logs, setLogs] = useState<WorkoutSessionLogs>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [logs, setLogs] = useState<WorkoutSessionLogs>(() => getInitialWorkoutLogs());
 
   // Modal for technical guide & tutorial video
   const [activeExerciseModal, setActiveExerciseModal] = useState<Exercise | null>(null);
+
+  const BODYWEIGHT_STORAGE_KEY = 'ironroutine_user_bodyweight';
+
+  // Body weight state (default 74 kg, permanent across days & sessions)
+  const [bodyWeight, setBodyWeight] = useState<string>(() => {
+    try {
+      return localStorage.getItem(BODYWEIGHT_STORAGE_KEY) || '74';
+    } catch {
+      return '74';
+    }
+  });
+
+  const handleUpdateBodyWeight = (newWeight: string) => {
+    setBodyWeight(newWeight);
+    try {
+      localStorage.setItem(BODYWEIGHT_STORAGE_KEY, newWeight);
+    } catch {
+      // storage fallback
+    }
+  };
 
   // Rest Timer state
   const [isRestTimerOpen, setIsRestTimerOpen] = useState(false);
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
 
-  // Sync logs to localStorage
+  // Sync logs to localStorage permanently
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
@@ -84,15 +141,39 @@ export default function App() {
     });
   };
 
+  // Apply a weight to all sets of an exercise
+  const handleApplyWeightToAllSets = (exerciseId: string, weight: string) => {
+    setLogs((prev) => {
+      const exercise = WORKOUT_DAYS.flatMap((d) => d.exercises).find((e) => e.id === exerciseId);
+      const setsCount = exercise ? (exercise.isTimeBased ? 1 : exercise.setsCount) : 3;
+      const currentSets = prev[exerciseId] ? [...prev[exerciseId]] : [];
+      while (currentSets.length < setsCount) {
+        currentSets.push({
+          reps: exercise ? String(exercise.defaultReps).split('+')[0].trim() : '10',
+          weight: '',
+          completed: false,
+        });
+      }
+      const updatedSets = currentSets.map((s) => ({
+        ...s,
+        weight,
+      }));
+      return {
+        ...prev,
+        [exerciseId]: updatedSets,
+      };
+    });
+  };
+
   // Trigger rest timer
   const handleTriggerRestTimer = (seconds: number) => {
     setRestTimerSeconds(seconds);
     setIsRestTimerOpen(true);
   };
 
-  // Reset current day's progress
+  // Reset current day's progress (keeps user saved weights and reps!)
   const handleResetCurrentDay = () => {
-    if (window.confirm(`Vuoi azzerare tutte le spunte per ${currentDay.dayName}?`)) {
+    if (window.confirm(`Vuoi azzerare tutte le spunte per ${currentDay.dayName}? (I tuoi kg e ripetizioni rimangono salvati)`)) {
       setLogs((prev) => {
         const next = { ...prev };
         currentDay.exercises.forEach((ex) => {
@@ -136,6 +217,12 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-5 space-y-6">
+        {/* Permanent iPhone-Style Body Weight Widget */}
+        <BodyWeightWidget
+          weight={bodyWeight}
+          onUpdateWeight={handleUpdateBodyWeight}
+        />
+
         {/* Day Selector Navigation */}
         <DaySelector
           days={WORKOUT_DAYS}
@@ -232,6 +319,7 @@ export default function App() {
                   exerciseIndex={index}
                   setLogs={currentExerciseLogs}
                   onUpdateSetLog={handleUpdateSetLog}
+                  onApplyWeightToAllSets={handleApplyWeightToAllSets}
                   onOpenTutorial={(ex) => setActiveExerciseModal(ex)}
                   onTriggerRestTimer={handleTriggerRestTimer}
                   accentColor={currentDay.accentColor}
