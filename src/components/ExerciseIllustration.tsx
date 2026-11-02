@@ -218,6 +218,28 @@ export const ExerciseIllustration: React.FC<IllustrationProps> = ({
           </g>
         )}
 
+        {/* 8b. Bench Dips (Dips su panca) */}
+        {illustrationKey === 'bench_dips' && (
+          <g transform="translate(20, 10)">
+            {/* Gym Bench */}
+            <rect x="55" y="118" width="95" height="14" rx="3" fill="#3f3f46" />
+            <line x1="70" y1="132" x2="70" y2="175" stroke={machineColor} strokeWidth="7" />
+            <line x1="135" y1="132" x2="135" y2="175" stroke={machineColor} strokeWidth="7" />
+            {/* Athlete sitting just off edge */}
+            <circle cx="165" cy="70" r="12" fill={bodyColor} />
+            <line x1="165" y1="84" x2="165" y2="140" stroke={bodyColor} strokeWidth="8" strokeLinecap="round" />
+            {/* Arms on bench with elbows pushing back */}
+            <path d="M 163 92 L 140 102 L 148 118" stroke={bodyColor} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Triceps Highlight */}
+            <ellipse cx="145" cy="100" rx="7" ry="11" fill={highlightColor} filter="url(#neonPulse)" transform="rotate(25 145 100)" />
+            {/* Legs extended forward */}
+            <path d="M 165 140 L 205 148 L 238 175" stroke={bodyColor} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Vertical push-up arrow */}
+            <line x1="130" y1="145" x2="130" y2="92" stroke={highlightColor} strokeWidth="3" strokeDasharray="3 3" />
+            <polygon points="130,86 125,96 135,96" fill={highlightColor} />
+          </g>
+        )}
+
         {/* 9. Kneeling Cable Crunch */}
         {illustrationKey === 'cable_crunch' && (
           <g transform="translate(15, 10)">

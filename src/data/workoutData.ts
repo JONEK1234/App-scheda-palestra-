@@ -177,26 +177,35 @@ export const WORKOUT_DAYS: WorkoutDay[] = [
       },
       {
         id: 'g1_ex8',
-        name: 'Push Down Cavo Singolo',
+        name: 'Dips su Panca',
         category: 'Tricipiti',
-        targetMuscles: ['Tricipite Brachiale (Isolamento Unilaterale)'],
+        targetMuscles: ['Tricipite Brachiale', 'Deltoide Anteriore', 'Pettorale (fasci inferiori)'],
         prescription: '3x12',
         setsCount: 3,
         defaultReps: 12,
+        defaultWeightKg: 'Corpo libero',
         defaultRestSeconds: 60,
-        gripType: 'Impugnatura singola o gommino del cavo, presa neutra/semiprona. 12 reps per braccio per 3 serie.',
-        setupDescription: 'Cavo alto senza sbarra o con maniglia singola. Lavora un braccio alla volta per colmare sbilanciamenti di forza e massimizzare la concentrazione neuromuscolare.',
+        gripType: 'Palmi appoggiati sul bordo della panca a lato dei fianchi, dita rivolte in avanti verso i piedi.',
+        setupDescription: 'Siediti sul bordo della panca con le mani vicino ai glutei. Porta il bacino in avanti appena fuori dalla panca mantenendo la schiena vicina al bordo, gambe distese o con ginocchia leggermente flesse.',
         executionSteps: [
-          'Afferra la maniglia con un braccio, gomito saldo al fianco.',
-          'Spingi verso il basso fino alla completa estensione del gomito, accentuando la contrazione laterale.',
-          'Rallenta la risalita controllando la fase eccentrica.',
-          'Completa 12 ripetizioni con il primo braccio, poi passa subito al secondo braccio prima del riposo.'
+          'Fletti i gomiti all\'indietro scendendo con il bacino in verticale finché le braccia non formano un angolo di circa 90° al gomito.',
+          'Mantieni le spalle basse e lontane dalle orecchie, senza lasciarle insaccare.',
+          'Spingi con forza verso il basso facendo leva sui palmi delle mani per distendere le braccia ed espirando.',
+          'Contrai i tricipiti nel punto più alto per 1 secondo senza bloccare a scatto le articolazioni.'
         ],
-        keyTips: ['Ottimo esercizio per pareggiare il volume tra braccio destro e sinistro.', 'Mantieni le spalle stabili e parallele allo specchio.'],
-        commonMistakes: ['Ruotare il busto per aiutarsi a spingere il cavo.', 'Gomito volante non ancorato al fianco.'],
-        videoTutorialUrl: 'https://www.youtube-nocookie.com/embed/-xa-6cQaZKY',
-        videoTitle: 'Single Arm Cable Pushdown Guide',
-        illustrationKey: 'pushdown_single'
+        keyTips: [
+          'Tieni la schiena vicinissima al bordo della panca durante tutta la discesa per non stressare le spalle.',
+          'Gomiti paralleli che puntano indietro, non lasciarli aprire verso l\'esterno.',
+          'Per aumentare l\'intensità puoi appoggiare i piedi su un\'altra panca o poggiare un disco sulle cosce.'
+        ],
+        commonMistakes: [
+          'Allontanare troppo il bacino dalla panca sovraccaricando la capsula anteriore della spalla.',
+          'Scendere eccessivamente in profondità oltre i 90° forzando l\'articolazione scapolo-omerale.',
+          'Spalle chiuse in avanti verso il collo.'
+        ],
+        videoTutorialUrl: 'https://www.youtube-nocookie.com/embed/0326dy_-CzM',
+        videoTitle: 'Bench Dips Tutorial - Esecuzione Perfetta Dips su Panca',
+        illustrationKey: 'bench_dips'
       },
       {
         id: 'g1_ex9',

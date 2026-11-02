@@ -12,6 +12,7 @@ import {
 } from './types/workout';
 import { Header } from './components/Header';
 import { BodyWeightWidget } from './components/BodyWeightWidget';
+import { HistoryModal } from './components/HistoryModal';
 import { DaySelector } from './components/DaySelector';
 import { ExerciseCard } from './components/ExerciseCard';
 import { ExerciseModal } from './components/ExerciseModal';
@@ -25,7 +26,8 @@ import {
   ChevronRight, 
   Share2, 
   Award,
-  Layers
+  Layers,
+  TrendingUp
 } from 'lucide-react';
 
 const STORAGE_KEY = 'ironroutine_user_logs_v1';
@@ -82,6 +84,9 @@ export default function App() {
 
   // Modal for technical guide & tutorial video
   const [activeExerciseModal, setActiveExerciseModal] = useState<Exercise | null>(null);
+
+  // History & Notes Modal state
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   const BODYWEIGHT_STORAGE_KEY = 'ironroutine_user_bodyweight';
 
@@ -296,6 +301,37 @@ export default function App() {
           )}
         </div>
 
+        {/* Only visible on Lunedì (Day 1): Cronologia Miglioramenti */}
+        {selectedDayId === 1 && (
+          <button
+            onClick={() => setIsHistoryModalOpen(true)}
+            className="w-full flex items-center justify-between p-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-950 hover:bg-zinc-850 border border-emerald-500/40 text-zinc-200 hover:text-white transition shadow-lg active:scale-[0.99] cursor-pointer group animate-fade-in"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-bold text-white group-hover:text-emerald-300 transition">
+                    Cronologia Miglioramenti (Lunedì)
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    26/10
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-400">
+                  Note sessione registrata (Dips su panca, Shoulder Press 14kg, PEC Fly 18kg...)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 shrink-0">
+              <span className="hidden sm:inline">Apri note</span>
+              <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition" />
+            </div>
+          </button>
+        )}
+
         {/* List of Exercises for the Day */}
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
@@ -343,6 +379,12 @@ export default function App() {
         exercise={activeExerciseModal}
         onClose={() => setActiveExerciseModal(null)}
         accentColor={currentDay.accentColor}
+      />
+
+      {/* History & Progression Notes Modal */}
+      <HistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
       />
 
       {/* Clean Minimalist Footer */}
