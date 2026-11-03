@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
-import { Scale, Plus, Minus, Edit3, Check, TrendingUp, Sparkles } from 'lucide-react';
+import { Scale, Plus, Minus, Edit3, Check, TrendingUp, Sparkles, FileText, Clock } from 'lucide-react';
 
 interface BodyWeightWidgetProps {
   weight: string;
   onUpdateWeight: (newWeight: string) => void;
+  hasNotesForDay?: boolean;
+  onOpenNotes?: () => void;
+  onOpenMonthAfter?: () => void;
+  activeDayName?: string;
 }
 
 export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
   weight,
   onUpdateWeight,
+  hasNotesForDay = false,
+  onOpenNotes,
+  onOpenMonthAfter,
+  activeDayName = 'Lunedì',
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(weight);
@@ -120,7 +128,7 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
           </div>
         </div>
 
-        {/* Right: Schematic Controls (iPhone Style Stepper & Edit) */}
+        {/* Right: Schematic Controls (iPhone Style Stepper & Edit) + Note & Un Mese Dopo */}
         <div className="w-full sm:w-auto flex flex-col sm:items-end gap-2.5">
           {isEditing ? (
             <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 p-1.5 rounded-2xl w-full sm:w-auto">
@@ -147,7 +155,7 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
               {/* Stepper buttons (-0.5 / +0.5) */}
               <div className="flex items-center bg-zinc-900/90 border border-zinc-800 rounded-2xl p-1 gap-1">
                 <button
@@ -184,6 +192,33 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
                 <Edit3 className="w-3.5 h-3.5 text-red-500" />
                 <span className="hidden sm:inline">Modifica</span>
               </button>
+
+              {/* Special Note Button that appears next to the weight increase controls when this day has notes */}
+              {hasNotesForDay && onOpenNotes && (
+                <button
+                  type="button"
+                  onClick={onOpenNotes}
+                  className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-sm animate-fade-in"
+                  title="Apri Sezione Note & Cronologia a Schermo Intero"
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Note ({activeDayName})</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                </button>
+              )}
+
+              {/* "Un Mese Dopo" Button with timer icon */}
+              {onOpenMonthAfter && (
+                <button
+                  type="button"
+                  onClick={onOpenMonthAfter}
+                  className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-sm"
+                  title="Apri Sezione 'Un Mese Dopo' (Confronto pesi e countdown)"
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="whitespace-nowrap">Un Mese Dopo</span>
+                </button>
+              )}
             </div>
           )}
 

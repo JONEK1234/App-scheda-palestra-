@@ -52,3 +52,36 @@ export interface StoredSetLog {
 }
 
 export type WorkoutSessionLogs = Record<string, StoredSetLog[]>; // exerciseId -> sets
+
+export interface NoteEntry {
+  id: string;
+  title: string;
+  date: string; // e.g. "03/11/2026"
+  time: string; // e.g. "12:24"
+  timestamp: number;
+  dayId?: DayOfWeekId;
+  dayName?: string;
+  content: string;
+  badge?: string;
+  isCustom?: boolean;
+}
+
+export interface DayMonthlyAnnotation {
+  id: string;
+  text: string;
+  date: string;
+  time: string;
+  timestamp: number;
+  dayId: DayOfWeekId;
+  dayName: string;
+}
+
+export interface MonthlyProgressSnapshot {
+  monthKey: string; // e.g. "2026-11"
+  monthName: string; // e.g. "Novembre 2026"
+  targetDate: string; // e.g. "2026-12-01T00:00:00"
+  baselineWeights: Record<string, string>; // exerciseId -> baseline weight kg
+  annotations: DayMonthlyAnnotation[];
+}
+
+export type ActiveViewMode = 'workout' | 'notes' | 'month-after';

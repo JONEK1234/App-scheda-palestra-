@@ -1,0 +1,649 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  ArrowLeft, 
+  Clock, 
+  Calendar, 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  Sparkles, 
+  Plus, 
+  Trash2, 
+  Dumbbell, 
+  CheckCircle2, 
+  ChevronRight, 
+  Save, 
+  History, 
+  AlertCircle,
+  Award
+} from 'lucide-react';
+import { 
+  DayOfWeekId, 
+  WorkoutDay, 
+  WorkoutSessionLogs, 
+  DayMonthlyAnnotation,
+  MonthlyProgressSnapshot 
+} from '../types/workout';
+
+interface MonthAfterViewProps {
+  days: WorkoutDay[];
+  currentLogs: WorkoutSessionLogs;
+  activeDayId: DayOfWeekId;
+  onBackToWorkout: () => void;
+  bodyWeight: string;
+}
+
+const STORAGE_MONTHLY_KEY = 'ironroutine_monthly_snapshots_v2';
+const STORAGE_MONTHLY_ANNOTATIONS_KEY = 'ironroutine_monthly_annotations_v2';
+
+export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
+  days,
+  currentLogs,
+  activeDayId,
+  onBackToWorkout,
+  bodyWeight,
+}) => {
+  // Selected day for comparison: defaults to the active day from workout
+  const [selectedDayId, setSelectedDayId] = useState<DayOfWeekId>(activeDayId);
+
+  // Month Key: e.g. "2026-11"
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>('2026-11');
+
+  // Saved monthly snapshots (Record<monthKey, MonthlyProgressSnapshot>)
+  const [snapshots, setSnapshots] = useState<Record<string, MonthlyProgressSnapshot>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_MONTHLY_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+
+    // Default baseline for November 2026
+    const defaultBaselines: Record<string, string> = {
+      // Giorno 1 (Lunedì)
+      g1_ex2: '14', // Chest Press
+      g1_ex3: '18', // Pec Fly
+      g1_ex4: '14', // Shoulder Press
+      g1_ex5: '6',  // Alzate laterali
+      g1_ex6: '5',  // French Press
+      g1_ex7: '18', // Push Down Sbarra Diritta
+      g1_ex8: '0',  // Dips su panca (corpo libero)
+      // Giorno 2 (Mercoledì)
+      g2_ex2: '18', // Lat Machine
+      g2_ex3: '20', // Pulley Basso
+      g2_ex4: '5',  // Rematore Manubri
+      g2_ex5: '5',  // Curl Manubri
+      g2_ex6: '23', // Curl Cavo
+      // Giorno 3 (Venerdì)
+      g3_ex2: '60', // Leg Press
+      g3_ex3: '35', // Leg Extension
+      g3_ex4: '30', // Leg Curl
+      g3_ex5: '12', // Affondi
+      g3_ex6: '16', // Squat Sumo
+    };
+
+    return {
+      '2026-11': {
+        monthKey: '2026-11',
+        monthName: 'Novembre 2026 (In corso)',
+        targetDate: '2026-12-01T00:00:00',
+        baselineWeights: defaultBaselines,
+        annotations: [
+          {
+            id: 'ann_initial',
+            text: 'Inizio mese fissato. Carichi di partenza registrati per monitorare i miglioramenti un mese dopo.',
+            date: '01/11/2026',
+            time: '09:00',
+            timestamp: new Date('2026-11-01T09:00:00').getTime(),
+            dayId: 1,
+            dayName: 'Lunedì'
+          }
+        ],
+      },
+      '2026-10': {
+        monthKey: '2026-10',
+        monthName: 'Ottobre 2026 (Archivio Mese Scorso)',
+        targetDate: '2026-11-01T00:00:00',
+        baselineWeights: {
+          g1_ex2: '12',
+          g1_ex3: '16',
+          g1_ex4: '9',
+          g1_ex5: '5',
+          g1_ex6: '2.5',
+          g1_ex7: '14',
+          g2_ex2: '15',
+          g2_ex3: '18',
+          g2_ex4: '4',
+          g2_ex5: '4',
+          g2_ex6: '20',
+        },
+        annotations: [
+          {
+            id: 'ann_oct_end',
+            text: 'Chiusura mese di ottobre: Shoulder press aumentata da 9kg a 14kg, push down sbarra arrivata a 23kg.',
+            date: '26/10/2026',
+            time: '19:15',
+            timestamp: new Date('2026-10-26T19:15:00').getTime(),
+            dayId: 1,
+            dayName: 'Lunedì'
+          }
+        ],
+      }
+    };
+  });
+
+  // Annotations state (all annotations across days and months)
+  const [annotations, setAnnotations] = useState<DayMonthlyAnnotation[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_MONTHLY_ANNOTATIONS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return [
+      {
+        id: 'ann_init_1',
+        text: 'Carico di partenza Dips su panca inserito a corpo libero (12 rip. costanti). Shoulder press salita a 14kg.',
+        date: '03/11/2026',
+        time: '12:24',
+        timestamp: new Date('2026-11-03T12:24:00').getTime(),
+        dayId: 1,
+        dayName: 'Lunedì'
+      }
+    ];
+  });
+
+  // New annotation input
+  const [newAnnotationText, setNewAnnotationText] = useState('');
+  const [showAddAnnotation, setShowAddAnnotation] = useState(false);
+
+  // Sync to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_MONTHLY_KEY, JSON.stringify(snapshots));
+    } catch {
+      // storage fallback
+    }
+  }, [snapshots]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_MONTHLY_ANNOTATIONS_KEY, JSON.stringify(annotations));
+    } catch {
+      // storage fallback
+    }
+  }, [annotations]);
+
+  // Live Countdown Timer to next month target date (1 Dicembre 2026)
+  const targetDate = new Date('2026-12-01T00:00:00').getTime();
+  const [timeLeft, setTimeLeft] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const difference = targetDate - now;
+
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60),
+        });
+      } else {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  // Active workout day object for the selected tab
+  const currentWorkoutDay = days.find((d) => d.id === selectedDayId) || days[0];
+
+  // Active snapshot
+  const currentSnapshot = snapshots[selectedMonthKey] || snapshots['2026-11'];
+  const baselineWeights = currentSnapshot?.baselineWeights || {};
+
+  // Handle adding an annotation with AUTOMATIC DATE AND TIME
+  const handleAddAnnotation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAnnotationText.trim()) return;
+
+    const now = new Date();
+    const dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    const newAnn: DayMonthlyAnnotation = {
+      id: `ann_${Date.now()}`,
+      text: newAnnotationText.trim(),
+      date: dateStr,
+      time: timeStr,
+      timestamp: now.getTime(),
+      dayId: selectedDayId,
+      dayName: currentWorkoutDay.dayName,
+    };
+
+    setAnnotations((prev) => [newAnn, ...prev]);
+    setNewAnnotationText('');
+    setShowAddAnnotation(false);
+  };
+
+  const handleDeleteAnnotation = (id: string) => {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  // Helper to extract numeric current weight from user logs
+  const getExerciseCurrentWeight = (exerciseId: string, defaultWeightKg?: number | string): number => {
+    const logs = currentLogs[exerciseId];
+    if (logs && logs.length > 0) {
+      // Find highest or first valid weight entered
+      for (const s of logs) {
+        const val = parseFloat(s.weight);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
+    const def = parseFloat(String(defaultWeightKg || '0'));
+    return isNaN(def) ? 0 : def;
+  };
+
+  // Calculate stats for current day's exercises
+  const exercisesComparison = currentWorkoutDay.exercises
+    .filter((ex) => !ex.isTimeBased)
+    .map((ex) => {
+      const current = getExerciseCurrentWeight(ex.id, ex.defaultWeightKg);
+      const baseline = parseFloat(baselineWeights[ex.id] || String(ex.defaultWeightKg || 0)) || 0;
+      const diff = +(current - baseline).toFixed(1);
+
+      let status: 'increased' | 'decreased' | 'stable' = 'stable';
+      if (diff > 0) status = 'increased';
+      else if (diff < 0) status = 'decreased';
+
+      return {
+        exercise: ex,
+        baseline,
+        current,
+        diff,
+        status,
+      };
+    });
+
+  const countIncreased = exercisesComparison.filter((e) => e.status === 'increased').length;
+  const countDecreased = exercisesComparison.filter((e) => e.status === 'decreased').length;
+  const countStable = exercisesComparison.filter((e) => e.status === 'stable').length;
+
+  // Filter annotations for this day
+  const dayAnnotations = annotations.filter((a) => a.dayId === selectedDayId);
+
+  return (
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col selection:bg-red-600 selection:text-white">
+      {/* Top Header Navigation */}
+      <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 backdrop-blur-md px-4 sm:px-6 py-3.5">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <button
+            onClick={onBackToWorkout}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold transition active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-amber-500" />
+            <span>← Torna alla Scheda</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-bold flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Scadenza: 1 Dicembre</span>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        {/* Main Feature Hero: Live Countdown to "Un Mese Dopo" */}
+        <div className="relative rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-950 to-black border border-amber-500/30 p-6 sm:p-8 shadow-2xl overflow-hidden">
+          {/* Ambient Amber Glow */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full bg-amber-600/15 blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                  <Clock className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      Checkpoint Mensile
+                    </span>
+                    <span className="text-xs text-zinc-400 font-medium">
+                      Timer 1 Mese
+                    </span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    Un Mese Dopo — Risultati & Progressione
+                  </h1>
+                </div>
+              </div>
+
+              {/* Month Selector Dropdown (Allows viewing past months so history is never lost!) */}
+              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-1 text-xs">
+                <History className="w-3.5 h-3.5 text-zinc-400 ml-2" />
+                <select
+                  value={selectedMonthKey}
+                  onChange={(e) => setSelectedMonthKey(e.target.value)}
+                  className="bg-transparent text-white font-bold text-xs pr-3 py-1 focus:outline-none cursor-pointer"
+                >
+                  <option value="2026-11" className="bg-zinc-900 text-white">Novembre 2026 (In corso)</option>
+                  <option value="2026-10" className="bg-zinc-900 text-white">Ottobre 2026 (Archivio)</option>
+                </select>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
+              Questo strumento tiene traccia automatica dei carichi che usi. Confronta i pesi fissati a inizio mese con quelli che modifichi giorno per giorno, mostrandoti se sei aumentato (🟢), diminuito (🔴) o rimasto uguale (⚪).
+            </p>
+
+            {/* Countdown Display Card */}
+            <div className="grid grid-cols-4 gap-2 sm:gap-4 pt-2">
+              <div className="rounded-2xl bg-zinc-950/80 border border-zinc-800 p-3 sm:p-4 text-center">
+                <span className="block text-2xl sm:text-3xl font-black text-white font-mono">
+                  {timeLeft.days}
+                </span>
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Giorni
+                </span>
+              </div>
+              <div className="rounded-2xl bg-zinc-950/80 border border-zinc-800 p-3 sm:p-4 text-center">
+                <span className="block text-2xl sm:text-3xl font-black text-amber-400 font-mono">
+                  {timeLeft.hours}
+                </span>
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Ore
+                </span>
+              </div>
+              <div className="rounded-2xl bg-zinc-950/80 border border-zinc-800 p-3 sm:p-4 text-center">
+                <span className="block text-2xl sm:text-3xl font-black text-amber-400 font-mono">
+                  {timeLeft.minutes}
+                </span>
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Minuti
+                </span>
+              </div>
+              <div className="rounded-2xl bg-zinc-950/80 border border-zinc-800 p-3 sm:p-4 text-center">
+                <span className="block text-2xl sm:text-3xl font-black text-red-400 font-mono">
+                  {timeLeft.seconds}
+                </span>
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Secondi
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Day Selector Tabs: Lunedì, Mercoledì, Venerdì */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+              <Dumbbell className="w-3.5 h-3.5 text-amber-400" />
+              <span>Giorno di Analisi (Ognuno ha il suo "Mese Dopo")</span>
+            </span>
+            <span className="text-[11px] text-zinc-400">
+              Seleziona per vedere solo gli esercizi di quel giorno
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 p-1.5 bg-zinc-950 rounded-2xl border border-zinc-800">
+            {days.map((day) => {
+              const isSelected = selectedDayId === day.id;
+              return (
+                <button
+                  key={day.id}
+                  onClick={() => setSelectedDayId(day.id)}
+                  className={`py-2.5 px-3 rounded-xl text-center transition cursor-pointer flex flex-col items-center ${
+                    isSelected
+                      ? 'bg-zinc-900 border border-amber-500/50 text-white shadow-lg'
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
+                  }`}
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Giorno {day.id}
+                  </span>
+                  <span className={`text-xs sm:text-sm font-black ${isSelected ? 'text-amber-400' : 'text-zinc-300'}`}>
+                    {day.dayName}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Quick Stats for this day */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/30 p-3.5 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="block text-lg font-black text-emerald-400">{countIncreased}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Aumentati</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 p-3.5 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
+              <Minus className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="block text-lg font-black text-zinc-200">{countStable}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Invariati</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-rose-950/20 border border-rose-500/30 p-3.5 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+              <TrendingDown className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="block text-lg font-black text-rose-400">{countDecreased}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Diminuiti</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Exercises Evolution Table for Selected Day */}
+        <div className="rounded-3xl bg-zinc-950 border border-zinc-800 overflow-hidden shadow-xl">
+          <div className="p-4 sm:p-5 border-b border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                <span>Evoluzione Carichi — {currentWorkoutDay.dayName}</span>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900 text-zinc-300 border border-zinc-800">
+                  {currentWorkoutDay.title}
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Confronto tra carico di inizio mese e carichi attuali della tua scheda
+              </p>
+            </div>
+          </div>
+
+          <div className="divide-y divide-zinc-900">
+            {exercisesComparison.map(({ exercise, baseline, current, diff, status }) => (
+              <div
+                key={exercise.id}
+                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition"
+              >
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase">
+                      {exercise.category}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-zinc-300">
+                      {exercise.prescription}
+                    </span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                    {exercise.name}
+                  </h3>
+                </div>
+
+                {/* Evolution Metric Comparison */}
+                <div className="flex items-center gap-4 shrink-0 justify-between sm:justify-end">
+                  {/* Baseline Weight */}
+                  <div className="text-center px-2">
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 block">
+                      Inizio Mese
+                    </span>
+                    <span className="text-xs sm:text-sm font-mono font-bold text-zinc-400">
+                      {baseline > 0 ? `${baseline} kg` : 'Corpo libero'}
+                    </span>
+                  </div>
+
+                  {/* Arrow Indicator */}
+                  <div className="text-zinc-600">→</div>
+
+                  {/* Current Weight */}
+                  <div className="text-center px-2">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400 block">
+                      Attuale
+                    </span>
+                    <span className="text-xs sm:text-sm font-mono font-black text-white">
+                      {current > 0 ? `${current} kg` : 'Corpo libero'}
+                    </span>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="w-28 text-right">
+                    {status === 'increased' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-bold">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        <span>+{diff} kg</span>
+                      </span>
+                    )}
+                    {status === 'decreased' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold">
+                        <TrendingDown className="w-3.5 h-3.5" />
+                        <span>{diff} kg</span>
+                      </span>
+                    )}
+                    {status === 'stable' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-xs font-bold">
+                        <Minus className="w-3 h-3" />
+                        <span>Invariato</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Annotations Section for this Day with AUTOMATIC TIMESTAMP */}
+        <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+            <div>
+              <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                <span>Annotazioni Mensili — {currentWorkoutDay.dayName}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  {dayAnnotations.length} note
+                </span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Appunti e sensazioni: data, ora e minuti vengono salvati automaticamente.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowAddAnnotation(!showAddAnnotation)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition active:scale-95 cursor-pointer shadow"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nuova Annotazione</span>
+            </button>
+          </div>
+
+          {/* New Annotation Form */}
+          {showAddAnnotation && (
+            <form onSubmit={handleAddAnnotation} className="p-4 rounded-2xl bg-zinc-900/60 border border-amber-500/30 space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span className="font-bold text-white">Scrivi una breve annotazione per {currentWorkoutDay.dayName}</span>
+                <span className="font-mono text-[11px] text-amber-400">
+                  Data e ora automatiche al salvataggio
+                </span>
+              </div>
+              <textarea
+                rows={3}
+                required
+                value={newAnnotationText}
+                onChange={(e) => setNewAnnotationText(e.target.value)}
+                placeholder={`Es. Oggi in ${currentWorkoutDay.dayName} ho sentito più forza nelle serie di spinta, prossimo mese punto a +2kg...`}
+                className="w-full bg-zinc-950 border border-zinc-800 focus:border-amber-500 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none resize-none"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddAnnotation(false)}
+                  className="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow"
+                >
+                  Salva Annotazione
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* List of Annotations for this day */}
+          {dayAnnotations.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic py-3 text-center">
+              Nessuna annotazione registrata per {currentWorkoutDay.dayName}. Clicca "Nuova Annotazione" per aggiungerne una.
+            </p>
+          ) : (
+            <div className="space-y-3 pt-1">
+              {dayAnnotations.map((ann) => (
+                <div
+                  key={ann.id}
+                  className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 flex items-start justify-between gap-3 group"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-[10px] font-bold text-zinc-300">
+                        {ann.date} • {ann.time}
+                      </span>
+                      <span className="text-[10px] font-semibold text-amber-400">
+                        {ann.dayName}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-200 leading-relaxed">
+                      {ann.text}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleDeleteAnnotation(ann.id)}
+                    className="text-zinc-600 hover:text-red-400 p-1 rounded-lg transition shrink-0"
+                    title="Elimina annotazione"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+};

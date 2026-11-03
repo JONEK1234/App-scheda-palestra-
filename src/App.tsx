@@ -8,11 +8,16 @@ import {
   DayOfWeekId, 
   Exercise, 
   WorkoutSessionLogs, 
-  StoredSetLog 
+  StoredSetLog,
+  NoteEntry,
+  ActiveViewMode
 } from './types/workout';
+import { INITIAL_NOTES } from './data/notesData';
 import { Header } from './components/Header';
 import { BodyWeightWidget } from './components/BodyWeightWidget';
 import { HistoryModal } from './components/HistoryModal';
+import { FullPageNotesView } from './components/FullPageNotesView';
+import { MonthAfterView } from './components/MonthAfterView';
 import { DaySelector } from './components/DaySelector';
 import { ExerciseCard } from './components/ExerciseCard';
 import { ExerciseModal } from './components/ExerciseModal';
@@ -81,6 +86,51 @@ export default function App() {
   
   // Stored sets and logs: exerciseId -> StoredSetLog[]
   const [logs, setLogs] = useState<WorkoutSessionLogs>(() => getInitialWorkoutLogs());
+
+  // Active full-screen view mode: workout, notes hub, or month-after progression
+  const [viewMode, setViewMode] = useState<ActiveViewMode>('workout');
+
+  // Notes state (ordered from newest to oldest)
+  const NOTES_STORAGE_KEY = 'ironroutine_notes_v2';
+  const [notes, setNotes] = useState<NoteEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem(NOTES_STORAGE_KEY);
+      if (saved) {
+        const parsed: NoteEntry[] = JSON.parse(saved);
+        // Always refresh note_2026_11_03 with the latest structured content
+        const hasResoconto = parsed.some((n) => n.id === 'note_2026_11_03');
+        if (!hasResoconto) {
+          return [...INITIAL_NOTES, ...parsed.filter((p) => p.id !== 'note_2026_10_26')];
+        }
+        return parsed.map((n) => (n.id === 'note_2026_11_03' ? INITIAL_NOTES[0] : n));
+      }
+      return INITIAL_NOTES;
+    } catch {
+      return INITIAL_NOTES;
+    }
+  });
+
+  // Sync notes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+    } catch {
+      // storage fallback
+    }
+  }, [notes]);
+
+  const handleAddNote = (newNoteData: Omit<NoteEntry, 'id' | 'timestamp'>) => {
+    const newNote: NoteEntry = {
+      ...newNoteData,
+      id: `note_${Date.now()}`,
+      timestamp: Date.now(),
+    };
+    setNotes((prev) => [newNote, ...prev]);
+  };
+
+  const handleDeleteNote = (id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+  };
 
   // Modal for technical guide & tutorial video
   const [activeExerciseModal, setActiveExerciseModal] = useState<Exercise | null>(null);
@@ -206,6 +256,37 @@ export default function App() {
   const totalExercisesCount = currentDay.exercises.length;
   const isDayFinished = completedExercisesCount === totalExercisesCount && totalExercisesCount > 0;
 
+  // Check if current active day has notes
+  const hasNotesForDay = notes.some((n) => n.dayId === selectedDayId) || selectedDayId === 1;
+
+  // 1. FULL-SCREEN NOTES VIEW (Replaces whole screen as requested)
+  if (viewMode === 'notes') {
+    return (
+      <FullPageNotesView
+        notes={notes}
+        onAddNote={handleAddNote}
+        onDeleteNote={handleDeleteNote}
+        onBackToWorkout={() => setViewMode('workout')}
+        activeDayId={selectedDayId}
+        activeDayName={currentDay.dayName}
+      />
+    );
+  }
+
+  // 2. FULL-SCREEN "UN MESE DOPO" PROGRESSION & TIMER VIEW (Replaces whole screen)
+  if (viewMode === 'month-after') {
+    return (
+      <MonthAfterView
+        days={WORKOUT_DAYS}
+        currentLogs={logs}
+        activeDayId={selectedDayId}
+        onBackToWorkout={() => setViewMode('workout')}
+        bodyWeight={bodyWeight}
+      />
+    );
+  }
+
+  // 3. STANDARD WORKOUT VIEW
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col selection:bg-red-600 selection:text-white">
       {/* Offline Connectivity Toast */}
@@ -222,10 +303,14 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-5 space-y-6">
-        {/* Permanent iPhone-Style Body Weight Widget */}
+        {/* Permanent iPhone-Style Body Weight Widget with Notes and Un Mese Dopo buttons */}
         <BodyWeightWidget
           weight={bodyWeight}
           onUpdateWeight={handleUpdateBodyWeight}
+          hasNotesForDay={hasNotesForDay}
+          onOpenNotes={() => setViewMode('notes')}
+          onOpenMonthAfter={() => setViewMode('month-after')}
+          activeDayName={currentDay.dayName}
         />
 
         {/* Day Selector Navigation */}
@@ -301,10 +386,10 @@ export default function App() {
           )}
         </div>
 
-        {/* Only visible on Lunedì (Day 1): Cronologia Miglioramenti */}
+        {/* Only visible on Lunedì (Day 1): Note & Cronologia Miglioramenti */}
         {selectedDayId === 1 && (
           <button
-            onClick={() => setIsHistoryModalOpen(true)}
+            onClick={() => setViewMode('notes')}
             className="w-full flex items-center justify-between p-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-950 hover:bg-zinc-850 border border-emerald-500/40 text-zinc-200 hover:text-white transition shadow-lg active:scale-[0.99] cursor-pointer group animate-fade-in"
           >
             <div className="flex items-center gap-3">
@@ -314,19 +399,19 @@ export default function App() {
               <div className="text-left">
                 <div className="flex items-center gap-2">
                   <span className="text-xs sm:text-sm font-bold text-white group-hover:text-emerald-300 transition">
-                    Cronologia Miglioramenti (Lunedì)
+                    Note & Cronologia Miglioramenti (Lunedì)
                   </span>
                   <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    26/10
+                    {notes.filter((n) => n.dayId === 1 || !n.dayId).length} Note
                   </span>
                 </div>
                 <span className="text-[11px] text-zinc-400">
-                  Note sessione registrata (Dips su panca, Shoulder Press 14kg, PEC Fly 18kg...)
+                  Resoconto crescita muscolare (03/11), carichi 26/10 e progressione
                 </span>
               </div>
             </div>
             <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 shrink-0">
-              <span className="hidden sm:inline">Apri note</span>
+              <span className="hidden sm:inline">Apri a schermo intero</span>
               <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition" />
             </div>
           </button>
