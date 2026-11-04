@@ -123,9 +123,16 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </span>
             </div>
 
-            <h3 className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug">
-              {exercise.name}
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug">
+                {exercise.name}
+              </h3>
+              {exercise.weightNote && (
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300">
+                  {exercise.weightNote}
+                </span>
+              )}
+            </div>
 
             <p className="text-xs text-zinc-400 line-clamp-1 mt-0.5">
               {exercise.setupDescription}

@@ -51,21 +51,14 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
 
   // Saved monthly snapshots (Record<monthKey, MonthlyProgressSnapshot>)
   const [snapshots, setSnapshots] = useState<Record<string, MonthlyProgressSnapshot>>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_MONTHLY_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-
     // Default baseline for November 2026
     const defaultBaselines: Record<string, string> = {
       // Giorno 1 (Lunedì)
       g1_ex2: '14', // Chest Press
       g1_ex3: '18', // Pec Fly
       g1_ex4: '14', // Shoulder Press
-      g1_ex5: '6',  // Alzate laterali
-      g1_ex6: '5',  // French Press
+      g1_ex5: '5',  // Alzate laterali + frontali (5 kg)
+      g1_ex6: '5',  // French Press (5 kg)
       g1_ex7: '18', // Push Down Sbarra Diritta
       g1_ex8: '0',  // Dips su panca (corpo libero)
       // Giorno 2 (Mercoledì)
@@ -82,6 +75,23 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
       g3_ex6: '16', // Squat Sumo
     };
 
+    try {
+      const saved = localStorage.getItem(STORAGE_MONTHLY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed['2026-11']) {
+          parsed['2026-11'].baselineWeights = {
+            ...parsed['2026-11'].baselineWeights,
+            g1_ex5: '5',
+            g1_ex6: '5',
+          };
+        }
+        return parsed;
+      }
+    } catch {
+      // fallback
+    }
+
     return {
       '2026-11': {
         monthKey: '2026-11',
@@ -89,6 +99,15 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         targetDate: '2026-12-01T00:00:00',
         baselineWeights: defaultBaselines,
         annotations: [
+          {
+            id: 'ann_lunedi_pesi_5kg',
+            text: 'Lunedì — Inizio mese fissato: Alzate laterali e frontali a 5 kg (un po’ pesanti), French press a 5 kg (leggermente pesanti).',
+            date: '04/11/2026',
+            time: '12:20',
+            timestamp: new Date('2026-11-04T12:20:00').getTime(),
+            dayId: 1,
+            dayName: 'Lunedì'
+          },
           {
             id: 'ann_initial',
             text: 'Inizio mese fissato. Carichi di partenza registrati per monitorare i miglioramenti un mese dopo.',
@@ -134,13 +153,16 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
 
   // Annotations state (all annotations across days and months)
   const [annotations, setAnnotations] = useState<DayMonthlyAnnotation[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_MONTHLY_ANNOTATIONS_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-    return [
+    const defaultList: DayMonthlyAnnotation[] = [
+      {
+        id: 'ann_lunedi_pesi_5kg',
+        text: 'Lunedì — Inizio mese: Alzate laterali e frontali a 5 kg (un po’ pesanti). French press a 5 kg (leggermente pesanti).',
+        date: '04/11/2026',
+        time: '12:20',
+        timestamp: new Date('2026-11-04T12:20:00').getTime(),
+        dayId: 1,
+        dayName: 'Lunedì'
+      },
       {
         id: 'ann_init_1',
         text: 'Carico di partenza Dips su panca inserito a corpo libero (12 rip. costanti). Shoulder press salita a 14kg.',
@@ -151,6 +173,20 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         dayName: 'Lunedì'
       }
     ];
+
+    try {
+      const saved = localStorage.getItem(STORAGE_MONTHLY_ANNOTATIONS_KEY);
+      if (saved) {
+        const parsed: DayMonthlyAnnotation[] = JSON.parse(saved);
+        if (!parsed.some((a) => a.id === 'ann_lunedi_pesi_5kg')) {
+          return [defaultList[0], ...parsed];
+        }
+        return parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return defaultList;
   });
 
   // New annotation input
@@ -488,6 +524,11 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                     <span className="text-xs font-mono font-bold text-zinc-300">
                       {exercise.prescription}
                     </span>
+                    {exercise.weightNote && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold">
+                        {exercise.weightNote}
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
                     {exercise.name}
@@ -504,6 +545,16 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                     <span className="text-xs sm:text-sm font-mono font-bold text-zinc-400">
                       {baseline > 0 ? `${baseline} kg` : 'Corpo libero'}
                     </span>
+                    {exercise.id === 'g1_ex5' && (
+                      <span className="text-[10px] text-amber-400 font-bold block">
+                        (un po’ pesanti)
+                      </span>
+                    )}
+                    {exercise.id === 'g1_ex6' && (
+                      <span className="text-[10px] text-amber-400 font-bold block">
+                        (leggermente pesanti)
+                      </span>
+                    )}
                   </div>
 
                   {/* Arrow Indicator */}

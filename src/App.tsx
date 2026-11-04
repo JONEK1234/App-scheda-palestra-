@@ -64,7 +64,8 @@ function getInitialWorkoutLogs(): WorkoutSessionLogs {
           };
         } else if (
           ex.defaultWeightKg !== undefined &&
-          (existingSet.weight === '' || existingSet.weight === undefined)
+          (existingSet.weight === '' || existingSet.weight === undefined ||
+           ((ex.id === 'g1_ex5' || ex.id === 'g1_ex6') && (!existingSet.weight || existingSet.weight === '0')))
         ) {
           // Pre-populate with default weight if not set by user
           currentSets[i] = {
@@ -97,12 +98,15 @@ export default function App() {
       const saved = localStorage.getItem(NOTES_STORAGE_KEY);
       if (saved) {
         const parsed: NoteEntry[] = JSON.parse(saved);
-        // Always refresh note_2026_11_03 with the latest structured content
-        const hasResoconto = parsed.some((n) => n.id === 'note_2026_11_03');
-        if (!hasResoconto) {
-          return [...INITIAL_NOTES, ...parsed.filter((p) => p.id !== 'note_2026_10_26')];
+        // Refresh note_2026_11_03 with latest content
+        const resocontoNote = INITIAL_NOTES.find((n) => n.id === 'note_2026_11_03')!;
+        const nov04Note = INITIAL_NOTES.find((n) => n.id === 'note_2026_11_04')!;
+        
+        let currentList = parsed.map((n) => (n.id === 'note_2026_11_03' ? resocontoNote : n));
+        if (!currentList.some((n) => n.id === 'note_2026_11_04')) {
+          currentList = [nov04Note, ...currentList];
         }
-        return parsed.map((n) => (n.id === 'note_2026_11_03' ? INITIAL_NOTES[0] : n));
+        return currentList;
       }
       return INITIAL_NOTES;
     } catch {

@@ -2,6 +2,21 @@ import { NoteEntry } from '../types/workout';
 
 export const INITIAL_NOTES: NoteEntry[] = [
   {
+    id: 'note_2026_11_04',
+    title: 'Carichi Inizio Mese Lunedì: Alzate 5 kg & French Press 5 kg',
+    date: '04/11/2026',
+    time: '12:20',
+    timestamp: new Date('2026-11-04T12:20:00').getTime(),
+    dayId: 1,
+    dayName: 'Lunedì',
+    badge: 'Inizio Mese',
+    content: `Aggiornamento pesi di Lunedì per l'inizio mese:
+• Alzate Laterali + Alzate Frontali: 5 kg (un po’ pesanti)
+• French Press: 5 kg (leggermente pesanti)
+
+Nota importante: i carichi di partenza a inizio mese sono impostati a 5 kg. Le indicazioni tra parentesi evidenziano che per le alzate laterali/frontali 5 kg risultano un po' pesanti, mentre per la French press risultano leggermente pesanti. Serviranno da confronto diretto nella verifica "Un Mese Dopo".`
+  },
+  {
     id: 'note_2026_11_03',
     title: '📋 Resoconto Allenamento e Crescita Muscolare',
     date: '03/11/2026',
