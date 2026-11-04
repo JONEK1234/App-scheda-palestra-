@@ -12,24 +12,25 @@ export const WORKOUT_DAYS: WorkoutDay[] = [
     exercises: [
       {
         id: 'g1_ex1',
-        name: 'Riscaldamento: Tappeto',
+        name: 'Riscaldamento: Tapis Roulant (Tapiluran)',
         category: 'Riscaldamento',
         targetMuscles: ['Cardiovascolare', 'Gambe', 'Mobilità generale'],
-        prescription: "10' Tappeto",
+        prescription: "10:30 Tapis Roulant",
         isTimeBased: true,
-        timeDurationSeconds: 600, // 10 minutes
+        timeDurationSeconds: 630, // 10 min 30 sec
         setsCount: 1,
-        defaultReps: '10 min',
+        defaultReps: '10:30 min',
+        weightNote: '10 min • Pendenza 4 • Vel. 8.5 (Resistenza 7:30, poi rallenta e riparte fino a 10:30)',
         defaultRestSeconds: 60,
         gripType: 'Nessuna / Appoggio leggero sui corrimano se necessario',
-        setupDescription: 'Camminata a passo svelto (5.5 - 6.5 km/h) con leggera pendenza (2-4%) per riscaldare articolazioni di anche, ginocchia e caviglie, aumentando la temperatura corporea centrale prima dei carichi pesanti.',
+        setupDescription: '10 minuti con pendenza 4 e velocità 8.5 km/h. Fine resistenza a 7:30 per ora, poi leggero rallentamento e ripartenza fino a 10:30 minuti.',
         executionSteps: [
-          'Sali sul tapis roulant e avvia a velocità moderata (3-4 km/h per il primo minuto).',
-          'Aumenta gradualmente a 5.5 - 6.2 km/h con pendenza al 2-3%.',
-          'Mantieni postura eretta, sguardo in avanti e rullata fluida del piede (tacco-punta).',
-          'Oscilla le braccia in modo naturale per preparare anche le spalle.'
+          'Sali sul tapis roulant, imposta Pendenza 4 e Velocità 8.5 km/h per i primi 10 minuti.',
+          'Mantieni la resistenza costante fino al minuto 7:30.',
+          'Al minuto 7:30 rallenta leggermente il passo per rifiatare brevemente.',
+          'Riparti e completa la sessione continuando fino al minuto 10:30.'
         ],
-        keyTips: ['Non aggrapparti con forza ai corrimano per non alterare la postura.', 'Respira regolarmente e preparati mentalmente alla sessione di spinta.'],
+        keyTips: ['Pendenza 4 e velocità 8.5: riscaldamento attivo ed efficace.', 'Gestisci il rallentamento a 7:30 e riparti deciso fino a 10:30.'],
         commonMistakes: ['Iniziare subito a correre a freddo.', 'Busto inclinato in avanti a guardare lo smartphone.', 'Passo troppo lungo che batte sul tallone.'],
         videoTutorialUrl: 'https://www.youtube-nocookie.com/embed/5UMCR8-hQJk',
         videoTitle: 'Tutorial Riscaldamento Tapis Roulant',
@@ -116,7 +117,7 @@ export const WORKOUT_DAYS: WorkoutDay[] = [
         setsCount: 3,
         defaultReps: '12 + 12',
         defaultWeightKg: '5',
-        weightNote: 'Inizio mese: 5 kg (un po’ pesanti)',
+        weightNote: 'Attuale: 5 kg (un po’ pesanti)',
         defaultRestSeconds: 90,
         gripType: 'Presa prona o neutra con manubri leggeri/medi. Impugnatura morbida senza stringere convulsamente.',
         setupDescription: 'In piedi, piedi larghezza spalle, ginocchia morbide, addome compatto. Manubri ai fianchi per le laterali, poi davanti alle cosce per le frontali.',
@@ -239,20 +240,22 @@ export const WORKOUT_DAYS: WorkoutDay[] = [
         name: 'Defaticamento: Cyclette',
         category: 'Defaticamento',
         targetMuscles: ['Cardiovascolare', 'Gambe', 'Recupero attivo'],
-        prescription: "10' Cyclette",
+        prescription: "10:30 Cyclette",
         isTimeBased: true,
-        timeDurationSeconds: 600, // 10 minutes
+        timeDurationSeconds: 630, // 10 min 30 sec
         setsCount: 1,
-        defaultReps: '10 min',
+        defaultReps: '10:30 min',
+        weightNote: '10:30 min • Livello 3 (ultimi minuti Livello 4)',
         defaultRestSeconds: 0,
         gripType: 'Appoggio leggero sul manubrio con spalle rilassate.',
-        setupDescription: 'Regola l\'altezza della sella in modo che con il pedale nel punto più basso la gamba sia quasi completamente estesa (leggero angolo di 5-10° al ginocchio).',
+        setupDescription: '10:30 minuti: pedalata a Livello 3 e negli ultimi minuti salita a Livello 4 per completare il defaticamento.',
         executionSteps: [
-          'Pedala a cadenza costante (70-85 RPM) con resistenza bassa/moderata.',
-          'Focalizzati sul respiro profondo e rilassato per abbassare il battito cardiaco.',
-          'Favorisci il drenaggio e il recupero muscolare dopo la sessione pesante.'
+          'Pedala a cadenza costante (75-85 RPM) impostando la resistenza su Livello 3.',
+          'Mantieni il ritmo fluido favorendo il recupero muscolare.',
+          'Negli ultimi minuti di pedalata aumenta la resistenza a Livello 4 fino al completamento dei 10:30 minuti.',
+          'Focalizzati sul respiro profondo e rilassato per abbassare il battito cardiaco.'
         ],
-        keyTips: ['Bassa intensità: devi essere in grado di sostenere una conversazione agevolmente.', 'Non pedalare con il tallone ma con l\'avampiede.'],
+        keyTips: ['Livello 3 nei primi minuti e Livello 4 per chiudere in progressione.', 'Ottimo smaltimento metabolico e recupero gambe.'],
         commonMistakes: ['Sella troppo bassa che affatica le rotule.', 'Spingere a ritmi massimali vanificando l\'effetto defaticante.'],
         videoTutorialUrl: 'https://www.youtube-nocookie.com/embed/q3mZ45xMYKQ',
         videoTitle: 'Cool Down Stationary Bike Session',

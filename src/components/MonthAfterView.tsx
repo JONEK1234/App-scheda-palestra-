@@ -155,11 +155,11 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
   const [annotations, setAnnotations] = useState<DayMonthlyAnnotation[]>(() => {
     const defaultList: DayMonthlyAnnotation[] = [
       {
-        id: 'ann_lunedi_pesi_5kg',
-        text: 'Lunedì — Inizio mese: Alzate laterali e frontali a 5 kg (un po’ pesanti). French press a 5 kg (leggermente pesanti).',
+        id: 'ann_lunedi_cardio_pesi_v2',
+        text: 'Lunedì — Tapis Roulant: 10 min pendenza 4 vel. 8.5 (fine resistenza a 7:30, rallentamento e ripartenza fino a 10:30). Cyclette: 10:30 min Livello 3 (ultimi minuti Livello 4). Alzate Laterali+Frontali: attuale 5 kg (un po’ pesanti). French Press: 5 kg (leggermente pesanti).',
         date: '04/11/2026',
-        time: '12:20',
-        timestamp: new Date('2026-11-04T12:20:00').getTime(),
+        time: '12:30',
+        timestamp: new Date('2026-11-04T12:30:00').getTime(),
         dayId: 1,
         dayName: 'Lunedì'
       },
@@ -178,7 +178,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
       const saved = localStorage.getItem(STORAGE_MONTHLY_ANNOTATIONS_KEY);
       if (saved) {
         const parsed: DayMonthlyAnnotation[] = JSON.parse(saved);
-        if (!parsed.some((a) => a.id === 'ann_lunedi_pesi_5kg')) {
+        if (!parsed.some((a) => a.id === 'ann_lunedi_cardio_pesi_v2')) {
           return [defaultList[0], ...parsed];
         }
         return parsed;
@@ -290,26 +290,72 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
     return isNaN(def) ? 0 : def;
   };
 
-  // Calculate stats for current day's exercises
-  const exercisesComparison = currentWorkoutDay.exercises
-    .filter((ex) => !ex.isTimeBased)
-    .map((ex) => {
-      const current = getExerciseCurrentWeight(ex.id, ex.defaultWeightKg);
-      const baseline = parseFloat(baselineWeights[ex.id] || String(ex.defaultWeightKg || 0)) || 0;
-      const diff = +(current - baseline).toFixed(1);
+  // Calculate stats for all current day's exercises (including Tapis Roulant, Cyclette, Plank, etc.)
+  const exercisesComparison = currentWorkoutDay.exercises.map((ex) => {
+    if (ex.isTimeBased) {
+      const isCompleted = currentLogs[ex.id]?.[0]?.completed;
+      let status: 'increased' | 'decreased' | 'stable' = isCompleted ? 'increased' : 'stable';
 
-      let status: 'increased' | 'decreased' | 'stable' = 'stable';
-      if (diff > 0) status = 'increased';
-      else if (diff < 0) status = 'decreased';
+      let baselineText = ex.prescription;
+      let baselineSub = '';
+      let currentText = ex.prescription;
+      let currentSub = '';
+
+      if (ex.id === 'g1_ex1') {
+        baselineText = '10:00 min';
+        baselineSub = 'Pend. 4 • Vel. 8.5';
+        currentText = '10:30 min';
+        currentSub = 'Resist. 7:30 → 10:30';
+        status = 'increased';
+      } else if (ex.id === 'g1_ex10') {
+        baselineText = '10:30 min';
+        baselineSub = 'Livello 3';
+        currentText = '10:30 min';
+        currentSub = 'Ultimi min. Livello 4';
+        status = 'increased';
+      } else if (ex.id === 'g2_ex8') {
+        baselineText = '30 sec';
+        baselineSub = 'Plank';
+        currentText = '30 sec';
+        currentSub = 'Tenuta core';
+        status = 'stable';
+      }
 
       return {
         exercise: ex,
-        baseline,
-        current,
-        diff,
+        isTimeBased: true,
+        baseline: 0,
+        baselineText,
+        baselineSub,
+        current: 0,
+        currentText,
+        currentSub,
+        diff: 0,
         status,
       };
-    });
+    }
+
+    const current = getExerciseCurrentWeight(ex.id, ex.defaultWeightKg);
+    const baseline = parseFloat(baselineWeights[ex.id] || String(ex.defaultWeightKg || 0)) || 0;
+    const diff = +(current - baseline).toFixed(1);
+
+    let status: 'increased' | 'decreased' | 'stable' = 'stable';
+    if (diff > 0) status = 'increased';
+    else if (diff < 0) status = 'decreased';
+
+    return {
+      exercise: ex,
+      isTimeBased: false,
+      baseline,
+      baselineText: baseline > 0 ? `${baseline} kg` : 'Corpo libero',
+      baselineSub: '', // Non mettere la parentesi nell'inizio come richiesto!
+      current,
+      currentText: current > 0 ? `${current} kg` : 'Corpo libero',
+      currentSub: ex.id === 'g1_ex5' ? '(un po’ pesanti)' : ex.id === 'g1_ex6' ? '(leggermente pesanti)' : '',
+      diff,
+      status,
+    };
+  });
 
   const countIncreased = exercisesComparison.filter((e) => e.status === 'increased').length;
   const countDecreased = exercisesComparison.filter((e) => e.status === 'decreased').length;
@@ -511,7 +557,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
           </div>
 
           <div className="divide-y divide-zinc-900">
-            {exercisesComparison.map(({ exercise, baseline, current, diff, status }) => (
+            {exercisesComparison.map(({ exercise, isTimeBased, baselineText, baselineSub, currentText, currentSub, diff, status }) => (
               <div
                 key={exercise.id}
                 className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition"
@@ -537,22 +583,17 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
 
                 {/* Evolution Metric Comparison */}
                 <div className="flex items-center gap-4 shrink-0 justify-between sm:justify-end">
-                  {/* Baseline Weight */}
-                  <div className="text-center px-2">
+                  {/* Baseline Weight / Cardio (Inizio Mese: strictly NO parenthesis for Alzate) */}
+                  <div className="text-center px-2 min-w-[75px]">
                     <span className="text-[10px] uppercase font-bold text-zinc-500 block">
                       Inizio Mese
                     </span>
-                    <span className="text-xs sm:text-sm font-mono font-bold text-zinc-400">
-                      {baseline > 0 ? `${baseline} kg` : 'Corpo libero'}
+                    <span className="text-xs sm:text-sm font-mono font-bold text-zinc-300">
+                      {baselineText}
                     </span>
-                    {exercise.id === 'g1_ex5' && (
-                      <span className="text-[10px] text-amber-400 font-bold block">
-                        (un po’ pesanti)
-                      </span>
-                    )}
-                    {exercise.id === 'g1_ex6' && (
-                      <span className="text-[10px] text-amber-400 font-bold block">
-                        (leggermente pesanti)
+                    {baselineSub && (
+                      <span className="text-[10px] text-zinc-400 font-medium block">
+                        {baselineSub}
                       </span>
                     )}
                   </div>
@@ -560,31 +601,38 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                   {/* Arrow Indicator */}
                   <div className="text-zinc-600">→</div>
 
-                  {/* Current Weight */}
-                  <div className="text-center px-2">
+                  {/* Current Weight / Cardio (Attuale: with parenthesized notes!) */}
+                  <div className="text-center px-2 min-w-[75px]">
                     <span className="text-[10px] uppercase font-bold text-zinc-400 block">
                       Attuale
                     </span>
                     <span className="text-xs sm:text-sm font-mono font-black text-white">
-                      {current > 0 ? `${current} kg` : 'Corpo libero'}
+                      {currentText}
                     </span>
+                    {currentSub && (
+                      <span className="text-[10px] text-amber-400 font-bold block">
+                        {currentSub}
+                      </span>
+                    )}
                   </div>
 
                   {/* Status Badge */}
                   <div className="w-28 text-right">
-                    {status === 'increased' && (
+                    {isTimeBased ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold">
+                        {exercise.id === 'g1_ex1' ? '10:30 min' : exercise.id === 'g1_ex10' ? 'Liv. 3-4' : 'Attivo'}
+                      </span>
+                    ) : status === 'increased' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-bold">
                         <TrendingUp className="w-3.5 h-3.5" />
                         <span>+{diff} kg</span>
                       </span>
-                    )}
-                    {status === 'decreased' && (
+                    ) : status === 'decreased' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold">
                         <TrendingDown className="w-3.5 h-3.5" />
                         <span>{diff} kg</span>
                       </span>
-                    )}
-                    {status === 'stable' && (
+                    ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-xs font-bold">
                         <Minus className="w-3 h-3" />
                         <span>Invariato</span>

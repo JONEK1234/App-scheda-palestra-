@@ -102,7 +102,11 @@ export default function App() {
         const resocontoNote = INITIAL_NOTES.find((n) => n.id === 'note_2026_11_03')!;
         const nov04Note = INITIAL_NOTES.find((n) => n.id === 'note_2026_11_04')!;
         
-        let currentList = parsed.map((n) => (n.id === 'note_2026_11_03' ? resocontoNote : n));
+        let currentList = parsed.map((n) => {
+          if (n.id === 'note_2026_11_03') return resocontoNote;
+          if (n.id === 'note_2026_11_04') return nov04Note;
+          return n;
+        });
         if (!currentList.some((n) => n.id === 'note_2026_11_04')) {
           currentList = [nov04Note, ...currentList];
         }

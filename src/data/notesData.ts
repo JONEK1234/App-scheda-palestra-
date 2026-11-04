@@ -3,18 +3,20 @@ import { NoteEntry } from '../types/workout';
 export const INITIAL_NOTES: NoteEntry[] = [
   {
     id: 'note_2026_11_04',
-    title: 'Carichi Inizio Mese Lunedì: Alzate 5 kg & French Press 5 kg',
+    title: 'Aggiornamento Lunedì: Tapis Roulant, Cyclette, Alzate & French Press',
     date: '04/11/2026',
-    time: '12:20',
-    timestamp: new Date('2026-11-04T12:20:00').getTime(),
+    time: '12:30',
+    timestamp: new Date('2026-11-04T12:30:00').getTime(),
     dayId: 1,
     dayName: 'Lunedì',
-    badge: 'Inizio Mese',
-    content: `Aggiornamento pesi di Lunedì per l'inizio mese:
-• Alzate Laterali + Alzate Frontali: 5 kg (un po’ pesanti)
-• French Press: 5 kg (leggermente pesanti)
+    badge: 'Inizio Mese & Cardio',
+    content: `Parametri e carichi aggiornati per Lunedì:
+• Tapis Roulant (Tapiluran): 10 min • Pendenza 4 • Velocità 8.5 (fine resistenza a 7:30 per ora, poi leggero rallentamento e ripartenza fino a 10:30).
+• Defaticamento Cyclette: 10:30 min a Livello 3 e negli ultimi minuti salita a Livello 4.
+• Alzate Laterali + Alzate Frontali: inizio mese 5 kg (senza parentesi), nell'attuale 5 kg (un po’ pesanti).
+• French Press: 5 kg (leggermente pesanti).
 
-Nota importante: i carichi di partenza a inizio mese sono impostati a 5 kg. Le indicazioni tra parentesi evidenziano che per le alzate laterali/frontali 5 kg risultano un po' pesanti, mentre per la French press risultano leggermente pesanti. Serviranno da confronto diretto nella verifica "Un Mese Dopo".`
+Tutti gli esercizi sono stati integrati anche nel monitoraggio "Un Mese Dopo" per avere il quadro completo dell'evoluzione.`
   },
   {
     id: 'note_2026_11_03',
