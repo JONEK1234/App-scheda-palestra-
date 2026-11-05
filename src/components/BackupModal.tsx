@@ -29,6 +29,7 @@ interface BackupModalProps {
     monthlyAnnotations?: any;
     customOverrides?: any;
     workoutCustomizations?: WorkoutCustomizations;
+    workoutPeriods?: any;
   }) => void;
 }
 
@@ -54,6 +55,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
     let monthlyAnnotations = [];
     let customOverrides = {};
     let activeCustomizations = workoutCustomizations || {};
+    let workoutPeriods = [];
 
     try {
       const snapRaw = localStorage.getItem('ironroutine_monthly_snapshots_v2');
@@ -75,6 +77,11 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       if (wCustomRaw) activeCustomizations = JSON.parse(wCustomRaw);
     } catch {}
 
+    try {
+      const wpRaw = localStorage.getItem('ironroutine_workout_periods_v1');
+      if (wpRaw) workoutPeriods = JSON.parse(wpRaw);
+    } catch {}
+
     return {
       appName: 'IronRoutine PRO',
       version: '2.1',
@@ -88,6 +95,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         monthlyAnnotations,
         customOverrides,
         workoutCustomizations: activeCustomizations,
+        workoutPeriods,
       }
     };
   };
@@ -189,6 +197,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       monthlyAnnotations: data.monthlyAnnotations,
       customOverrides: data.customOverrides,
       workoutCustomizations: data.workoutCustomizations,
+      workoutPeriods: data.workoutPeriods,
     });
 
     setStatusMessage({

@@ -284,6 +284,7 @@ export default function App() {
     monthlyAnnotations?: any;
     customOverrides?: any;
     workoutCustomizations?: WorkoutCustomizations;
+    workoutPeriods?: any;
   }) => {
     if (restored.logs) {
       setLogs(restored.logs);
@@ -322,6 +323,11 @@ export default function App() {
       setWorkoutCustomizations(restored.workoutCustomizations);
       try {
         localStorage.setItem(WORKOUT_CUSTOMIZATIONS_STORAGE_KEY, JSON.stringify(restored.workoutCustomizations));
+      } catch {}
+    }
+    if (restored.workoutPeriods) {
+      try {
+        localStorage.setItem('ironroutine_workout_periods_v1', JSON.stringify(restored.workoutPeriods));
       } catch {}
     }
   };

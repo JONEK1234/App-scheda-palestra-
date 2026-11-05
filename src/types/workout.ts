@@ -106,3 +106,34 @@ export interface WorkoutCustomizations {
     setupDescription?: string;
   }>;
 }
+
+export interface ExercisePeriodRecord {
+  exerciseId: string;
+  name: string;
+  prescription: string;
+  category: string;
+  baselineText: string;
+  baselineSub?: string;
+  currentText: string;
+  currentSub?: string;
+  status: 'increased' | 'decreased' | 'stable';
+  isTimeBased?: boolean;
+}
+
+export interface DayPeriodRecord {
+  dayId: DayOfWeekId;
+  dayName: string;
+  title: string;
+  exercises: ExercisePeriodRecord[];
+}
+
+export interface WorkoutPeriodSnapshot {
+  id: string;
+  title: string;
+  startDate: string; // e.g. "01/11/2026"
+  endDate: string; // e.g. "13/11/2026"
+  notes?: string;
+  createdAt: number;
+  daysData: DayPeriodRecord[];
+  isInitialBaseline?: boolean;
+}

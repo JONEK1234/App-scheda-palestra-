@@ -18,15 +18,26 @@ import {
   Award,
   Edit3,
   X,
-  RotateCcw
+  RotateCcw,
+  Camera,
+  Eye,
+  Bookmark,
+  FileText,
+  Check
 } from 'lucide-react';
 import { 
   DayOfWeekId, 
   WorkoutDay, 
   WorkoutSessionLogs, 
   DayMonthlyAnnotation,
-  MonthlyProgressSnapshot 
+  MonthlyProgressSnapshot,
+  WorkoutPeriodSnapshot,
+  DayPeriodRecord,
+  ExercisePeriodRecord
 } from '../types/workout';
+import { SavePeriodModal } from './SavePeriodModal';
+import { PeriodDetailModal } from './PeriodDetailModal';
+import { EditPeriodModal } from './EditPeriodModal';
 
 export interface ExerciseMonthOverride {
   baselineText?: string;
@@ -46,6 +57,7 @@ interface MonthAfterViewProps {
 const STORAGE_MONTHLY_KEY = 'ironroutine_monthly_snapshots_v2';
 const STORAGE_MONTHLY_ANNOTATIONS_KEY = 'ironroutine_monthly_annotations_v2';
 const STORAGE_CUSTOM_OVERRIDES_KEY = 'ironroutine_custom_month_overrides_v1';
+const STORAGE_PERIODS_KEY = 'ironroutine_workout_periods_v1';
 
 export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
   days,
@@ -366,36 +378,74 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
     return isNaN(def) ? 0 : def;
   };
 
-  // Calculate stats for all current day's exercises (including Tapis Roulant, Cyclette, Plank, etc.)
-  const exercisesComparison = currentWorkoutDay.exercises.map((ex) => {
-    if (ex.isTimeBased) {
-      const isCompleted = currentLogs[ex.id]?.[0]?.completed;
-      let status: 'increased' | 'decreased' | 'stable' = isCompleted ? 'increased' : 'stable';
+  // Calculate comparison for any given day
+  const computeDayComparison = (dayToCompare: WorkoutDay) => {
+    return dayToCompare.exercises.map((ex) => {
+      if (ex.isTimeBased) {
+        const isCompleted = currentLogs[ex.id]?.[0]?.completed;
+        let status: 'increased' | 'decreased' | 'stable' = isCompleted ? 'increased' : 'stable';
 
-      let baselineText = ex.prescription;
-      let baselineSub = '';
-      let currentText = ex.prescription;
-      let currentSub = '';
+        let baselineText = ex.prescription;
+        let baselineSub = '';
+        let currentText = ex.prescription;
+        let currentSub = '';
 
-      if (ex.id === 'g1_ex1') {
-        baselineText = '10:00 min';
-        baselineSub = 'Pend. 4 • Vel. 8.5';
-        currentText = '10:30 min';
-        currentSub = 'Resist. 7:30 → 10:30';
-        status = 'increased';
-      } else if (ex.id === 'g1_ex10') {
-        baselineText = '10:30 min';
-        baselineSub = 'Livello 3';
-        currentText = '10:30 min';
-        currentSub = 'Ultimi min. Livello 4';
-        status = 'increased';
-      } else if (ex.id === 'g2_ex8') {
-        baselineText = '30 sec';
-        baselineSub = 'Plank';
-        currentText = '30 sec';
-        currentSub = 'Tenuta core';
-        status = 'stable';
+        if (ex.id === 'g1_ex1') {
+          baselineText = '10:00 min';
+          baselineSub = 'Pend. 4 • Vel. 8.5';
+          currentText = '10:30 min';
+          currentSub = 'Resist. 7:30 → 10:30';
+          status = 'increased';
+        } else if (ex.id === 'g1_ex10') {
+          baselineText = '10:30 min';
+          baselineSub = 'Livello 3';
+          currentText = '10:30 min';
+          currentSub = 'Ultimi min. Livello 4';
+          status = 'increased';
+        } else if (ex.id === 'g2_ex8') {
+          baselineText = '30 sec';
+          baselineSub = 'Plank';
+          currentText = '30 sec';
+          currentSub = 'Tenuta core';
+          status = 'stable';
+        }
+
+        // Apply user custom override if present
+        const override = customOverrides[ex.id];
+        if (override) {
+          if (override.baselineText !== undefined && override.baselineText !== '') baselineText = override.baselineText;
+          if (override.baselineSub !== undefined) baselineSub = override.baselineSub;
+          if (override.currentText !== undefined && override.currentText !== '') currentText = override.currentText;
+          if (override.currentSub !== undefined) currentSub = override.currentSub;
+        }
+
+        return {
+          exercise: ex,
+          isTimeBased: true,
+          baseline: 0,
+          baselineText,
+          baselineSub,
+          current: 0,
+          currentText,
+          currentSub,
+          diff: 0,
+          status,
+          isOverridden: !!override,
+        };
       }
+
+      const current = getExerciseCurrentWeight(ex.id, ex.defaultWeightKg);
+      const baseline = parseFloat(baselineWeights[ex.id] || String(ex.defaultWeightKg || 0)) || 0;
+      const diff = +(current - baseline).toFixed(1);
+
+      let status: 'increased' | 'decreased' | 'stable' = 'stable';
+      if (diff > 0) status = 'increased';
+      else if (diff < 0) status = 'decreased';
+
+      let baselineText = baseline > 0 ? `${baseline} kg` : 'Corpo libero';
+      let baselineSub = ''; // Non mettere la parentesi nell'inizio come richiesto!
+      let currentText = current > 0 ? `${current} kg` : 'Corpo libero';
+      let currentSub = ex.id === 'g1_ex5' ? '(un po’ pesanti)' : ex.id === 'g1_ex6' ? '(leggermente pesanti)' : '';
 
       // Apply user custom override if present
       const override = customOverrides[ex.id];
@@ -408,55 +458,197 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
 
       return {
         exercise: ex,
-        isTimeBased: true,
-        baseline: 0,
+        isTimeBased: false,
+        baseline,
         baselineText,
         baselineSub,
-        current: 0,
+        current,
         currentText,
         currentSub,
-        diff: 0,
+        diff,
         status,
         isOverridden: !!override,
       };
-    }
+    });
+  };
 
-    const current = getExerciseCurrentWeight(ex.id, ex.defaultWeightKg);
-    const baseline = parseFloat(baselineWeights[ex.id] || String(ex.defaultWeightKg || 0)) || 0;
-    const diff = +(current - baseline).toFixed(1);
+  const exercisesComparison = computeDayComparison(currentWorkoutDay);
 
-    let status: 'increased' | 'decreased' | 'stable' = 'stable';
-    if (diff > 0) status = 'increased';
-    else if (diff < 0) status = 'decreased';
+  // Capture frozen snapshot of the full 3-day routine
+  const captureFullRoutineSnapshot = (): DayPeriodRecord[] => {
+    return days.map((d) => ({
+      dayId: d.id,
+      dayName: d.dayName,
+      title: d.title,
+      exercises: computeDayComparison(d).map((item) => ({
+        exerciseId: item.exercise.id,
+        name: item.exercise.name,
+        prescription: item.exercise.prescription,
+        category: item.exercise.category,
+        baselineText: item.baselineText,
+        baselineSub: item.baselineSub,
+        currentText: item.currentText,
+        currentSub: item.currentSub,
+        status: item.status,
+        isTimeBased: item.isTimeBased,
+      })),
+    }));
+  };
 
-    let baselineText = baseline > 0 ? `${baseline} kg` : 'Corpo libero';
-    let baselineSub = ''; // Non mettere la parentesi nell'inizio come richiesto!
-    let currentText = current > 0 ? `${current} kg` : 'Corpo libero';
-    let currentSub = ex.id === 'g1_ex5' ? '(un po’ pesanti)' : ex.id === 'g1_ex6' ? '(leggermente pesanti)' : '';
+  // Build initial period days data (fallback for default initial period)
+  const buildInitialPeriodDaysData = (): DayPeriodRecord[] => {
+    return days.map((d) => ({
+      dayId: d.id,
+      dayName: d.dayName,
+      title: d.title,
+      exercises: d.exercises.map((ex) => {
+        if (ex.isTimeBased) {
+          let bText = '10:00 min';
+          let bSub = 'Pend. 4 • Vel. 8.5';
+          if (ex.id === 'g1_ex10') {
+            bText = '10:30 min';
+            bSub = 'Livello 3';
+          } else if (ex.id === 'g2_ex8') {
+            bText = '30 sec';
+            bSub = 'Plank';
+          }
+          return {
+            exerciseId: ex.id,
+            name: ex.name,
+            prescription: ex.prescription,
+            category: ex.category,
+            baselineText: bText,
+            baselineSub: bSub,
+            currentText: bText,
+            currentSub: bSub,
+            status: 'stable' as const,
+            isTimeBased: true,
+          };
+        }
+        let bWeight = baselineWeights[ex.id] || String(ex.defaultWeightKg || '0');
+        let bText = parseFloat(bWeight) > 0 ? `${bWeight} kg` : 'Corpo libero';
+        let sub = ex.id === 'g1_ex5' ? '(un po’ pesanti)' : ex.id === 'g1_ex6' ? '(leggermente pesanti)' : '';
+        return {
+          exerciseId: ex.id,
+          name: ex.name,
+          prescription: ex.prescription,
+          category: ex.category,
+          baselineText: bText,
+          baselineSub: '',
+          currentText: bText,
+          currentSub: sub,
+          status: 'stable' as const,
+          isTimeBased: false,
+        };
+      }),
+    }));
+  };
 
-    // Apply user custom override if present
-    const override = customOverrides[ex.id];
-    if (override) {
-      if (override.baselineText !== undefined && override.baselineText !== '') baselineText = override.baselineText;
-      if (override.baselineSub !== undefined) baselineSub = override.baselineSub;
-      if (override.currentText !== undefined && override.currentText !== '') currentText = override.currentText;
-      if (override.currentSub !== undefined) currentSub = override.currentSub;
-    }
+  // Navigation sub-tab: 'comparison' (Progressione carichi) vs 'periods' (Storico periodi)
+  const [activeSubTab, setActiveSubTab] = useState<'comparison' | 'periods'>('comparison');
 
-    return {
-      exercise: ex,
-      isTimeBased: false,
-      baseline,
-      baselineText,
-      baselineSub,
-      current,
-      currentText,
-      currentSub,
-      diff,
-      status,
-      isOverridden: !!override,
-    };
+  // Routine periods history state (persisted)
+  const [periods, setPeriods] = useState<WorkoutPeriodSnapshot[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_PERIODS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 'period_initial_nov',
+        title: 'Scheda Iniziale (Partenza)',
+        startDate: '01/11/2026',
+        endDate: '04/11/2026',
+        notes: 'Carichi di partenza fissati: Alzate laterali + frontali 5 kg (un po’ pesanti), French press 5 kg (leggermente pesanti), Shoulder press 14 kg, Pec Fly 18 kg, Push down sbarra 18 kg, Dips su panca 12 rip, Tapis roulant 10 min e Cyclette 10:30 min.',
+        createdAt: new Date('2026-11-04T12:00:00').getTime(),
+        isInitialBaseline: true,
+        daysData: [],
+      },
+    ];
   });
+
+  // Ensure default period has daysData populated
+  useEffect(() => {
+    setPeriods((prev) => {
+      let changed = false;
+      const updated = prev.map((p) => {
+        if (!p.daysData || p.daysData.length === 0) {
+          changed = true;
+          return {
+            ...p,
+            daysData: buildInitialPeriodDaysData(),
+          };
+        }
+        return p;
+      });
+      return changed ? updated : prev;
+    });
+  }, []);
+
+  // Sync periods to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_PERIODS_KEY, JSON.stringify(periods));
+    } catch {}
+  }, [periods]);
+
+  // Modals for periods
+  const [isCreatePeriodModalOpen, setIsCreatePeriodModalOpen] = useState(false);
+  const [periodDefaultStartDate, setPeriodDefaultStartDate] = useState('01/11/2026');
+  const [periodDefaultEndDate, setPeriodDefaultEndDate] = useState('13/11/2026');
+  const [periodDefaultTitle, setPeriodDefaultTitle] = useState('Scheda 1 Nov - 13 Nov');
+
+  const [viewingPeriod, setViewingPeriod] = useState<WorkoutPeriodSnapshot | null>(null);
+  const [editingPeriodMeta, setEditingPeriodMeta] = useState<WorkoutPeriodSnapshot | null>(null);
+
+  const handleOpenCreatePeriodModal = () => {
+    let start = '01/11/2026';
+    if (periods.length > 0 && periods[0].endDate) {
+      start = periods[0].endDate;
+    }
+    const today = new Date();
+    const end = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    const startDay = start.split('/')[0] || start;
+    const endDay = end.split('/')[0] || end;
+
+    setPeriodDefaultStartDate(start);
+    setPeriodDefaultEndDate(end === start ? '13/11/2026' : end);
+    setPeriodDefaultTitle(`Scheda ${startDay} Nov - ${end === start ? '13' : endDay} Nov`);
+    setIsCreatePeriodModalOpen(true);
+  };
+
+  const handleSaveNewPeriod = (data: { title: string; startDate: string; endDate: string; notes: string }) => {
+    const fullSnapshot = captureFullRoutineSnapshot();
+    const newPeriod: WorkoutPeriodSnapshot = {
+      id: `period_${Date.now()}`,
+      title: data.title,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      notes: data.notes,
+      createdAt: Date.now(),
+      daysData: fullSnapshot,
+    };
+
+    setPeriods((prev) => [newPeriod, ...prev]);
+    setIsCreatePeriodModalOpen(false);
+    setActiveSubTab('periods');
+  };
+
+  const handleSavePeriodMeta = (updated: WorkoutPeriodSnapshot) => {
+    setPeriods((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setEditingPeriodMeta(null);
+  };
+
+  const handleDeletePeriod = (id: string) => {
+    setPeriods((prev) => prev.filter((p) => p.id !== id));
+    if (viewingPeriod?.id === id) setViewingPeriod(null);
+  };
+
+  // Compute active period start date (from last archived period end date)
+  const activePeriodStartDate = periods.length > 0 && periods[0].endDate ? periods[0].endDate : '01/11/2026';
 
   const countIncreased = exercisesComparison.filter((e) => e.status === 'increased').length;
   const countDecreased = exercisesComparison.filter((e) => e.status === 'decreased').length;
@@ -568,316 +760,533 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                 </span>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Day Selector Tabs: Lunedì, Mercoledì, Venerdì */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <Dumbbell className="w-3.5 h-3.5 text-amber-400" />
-              <span>Giorno di Analisi (Ognuno ha il suo "Mese Dopo")</span>
-            </span>
-            <span className="text-[11px] text-zinc-400">
-              Seleziona per vedere solo gli esercizi di quel giorno
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 p-1.5 bg-zinc-950 rounded-2xl border border-zinc-800">
-            {days.map((day) => {
-              const isSelected = selectedDayId === day.id;
-              return (
-                <button
-                  key={day.id}
-                  onClick={() => setSelectedDayId(day.id)}
-                  className={`py-2.5 px-3 rounded-xl text-center transition cursor-pointer flex flex-col items-center ${
-                    isSelected
-                      ? 'bg-zinc-900 border border-amber-500/50 text-white shadow-lg'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
-                  }`}
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                    Giorno {day.id}
-                  </span>
-                  <span className={`text-xs sm:text-sm font-black ${isSelected ? 'text-amber-400' : 'text-zinc-300'}`}>
-                    {day.dayName}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Quick Stats for this day */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/30 p-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="block text-lg font-black text-emerald-400">{countIncreased}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Aumentati</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 p-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
-              <Minus className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="block text-lg font-black text-zinc-200">{countStable}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Invariati</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-rose-950/20 border border-rose-500/30 p-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
-              <TrendingDown className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="block text-lg font-black text-rose-400">{countDecreased}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Diminuiti</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Exercises Evolution Table for Selected Day */}
-        <div className="rounded-3xl bg-zinc-950 border border-zinc-800 overflow-hidden shadow-xl">
-          <div className="p-4 sm:p-5 border-b border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-black text-white tracking-tight flex items-center gap-2">
-                <span>Evoluzione Carichi — {currentWorkoutDay.dayName}</span>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900 text-zinc-300 border border-zinc-800">
-                  {currentWorkoutDay.title}
-                </span>
-              </h2>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Confronto tra carico di inizio mese e carichi attuali della tua scheda
-              </p>
-            </div>
-          </div>
-
-          <div className="divide-y divide-zinc-900">
-            {exercisesComparison.map(({ exercise, isTimeBased, baselineText, baselineSub, currentText, currentSub, diff, status, isOverridden }) => (
-              <div
-                key={exercise.id}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition"
+            {/* Quick Action buttons inside Hero */}
+            <div className="pt-2 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleOpenCreatePeriodModal}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs sm:text-sm font-black transition active:scale-95 shadow-md shadow-amber-950/40 cursor-pointer"
               >
-                <div className="space-y-1 min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase">
-                      {exercise.category}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-zinc-300">
-                      {exercise.prescription}
-                    </span>
-                    {exercise.weightNote && (
-                      <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold">
-                        {exercise.weightNote}
+                <Camera className="w-4 h-4 stroke-[2.5]" />
+                <span>📸 Salva Versione Scheda (Prima di Modificare)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('periods')}
+                className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer ${
+                  activeSubTab === 'periods'
+                    ? 'bg-zinc-850 border-amber-500 text-amber-300'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white'
+                }`}
+              >
+                <Calendar className="w-4 h-4 text-amber-400" />
+                <span>Vedi Storico Periodi ({periods.length})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Sub-Navigation: Progressione vs Storico Periodi */}
+        <div className="grid grid-cols-2 gap-2 p-1.5 bg-zinc-950 rounded-2xl border border-zinc-800 shadow-lg">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('comparison')}
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeSubTab === 'comparison'
+                ? 'bg-amber-500 text-black shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900/60'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>Progressione & Carichi</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('periods')}
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeSubTab === 'periods'
+                ? 'bg-amber-500 text-black shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900/60'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Storico Periodi Scheda</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+              activeSubTab === 'periods' ? 'bg-black/20 text-black' : 'bg-zinc-800 text-amber-400'
+            }`}>
+              {periods.length}
+            </span>
+          </button>
+        </div>
+
+        {/* ===================== VIEW 1: COMPARISON & PROGRESSION ===================== */}
+        {activeSubTab === 'comparison' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Day Selector Tabs: Lunedì, Mercoledì, Venerdì */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                  <Dumbbell className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Giorno di Analisi (Ognuno ha il suo "Mese Dopo")</span>
+                </span>
+                <span className="text-[11px] text-zinc-400">
+                  Seleziona per vedere solo gli esercizi di quel giorno
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 p-1.5 bg-zinc-950 rounded-2xl border border-zinc-800">
+                {days.map((day) => {
+                  const isSelected = selectedDayId === day.id;
+                  return (
+                    <button
+                      key={day.id}
+                      onClick={() => setSelectedDayId(day.id)}
+                      className={`py-2.5 px-3 rounded-xl text-center transition cursor-pointer flex flex-col items-center ${
+                        isSelected
+                          ? 'bg-zinc-900 border border-amber-500/50 text-white shadow-lg'
+                          : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        Giorno {day.id}
                       </span>
-                    )}
-                    {isOverridden && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                        Personalizzato
+                      <span className={`text-xs sm:text-sm font-black ${isSelected ? 'text-amber-400' : 'text-zinc-300'}`}>
+                        {day.dayName}
                       </span>
-                    )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick Stats for this day */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/30 p-3.5 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="block text-lg font-black text-emerald-400">{countIncreased}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Aumentati</span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 p-3.5 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
+                  <Minus className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="block text-lg font-black text-zinc-200">{countStable}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Invariati</span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-rose-950/20 border border-rose-500/30 p-3.5 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                  <TrendingDown className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="block text-lg font-black text-rose-400">{countDecreased}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Diminuiti</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Exercises Evolution Table for Selected Day */}
+            <div className="rounded-3xl bg-zinc-950 border border-zinc-800 overflow-hidden shadow-xl">
+              <div className="p-4 sm:p-5 border-b border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                    <span>Evoluzione Carichi — {currentWorkoutDay.dayName}</span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900 text-zinc-300 border border-zinc-800">
+                      {currentWorkoutDay.title}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Confronto tra carico di inizio mese e carichi attuali della tua scheda
+                  </p>
+                </div>
+              </div>
+
+              <div className="divide-y divide-zinc-900">
+                {exercisesComparison.map(({ exercise, isTimeBased, baselineText, baselineSub, currentText, currentSub, diff, status, isOverridden }) => (
+                  <div
+                    key={exercise.id}
+                    className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase">
+                          {exercise.category}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-zinc-300">
+                          {exercise.prescription}
+                        </span>
+                        {exercise.weightNote && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold">
+                            {exercise.weightNote}
+                          </span>
+                        )}
+                        {isOverridden && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            Personalizzato
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                        {exercise.name}
+                      </h3>
+                    </div>
+
+                    {/* Evolution Metric Comparison */}
+                    <div className="flex items-center gap-3 sm:gap-4 shrink-0 justify-between sm:justify-end">
+                      {/* Baseline Weight / Cardio (Inizio Mese: strictly NO parenthesis for Alzate) */}
+                      <div className="text-center px-2 min-w-[75px]">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 block">
+                          Inizio Mese
+                        </span>
+                        <span className="text-xs sm:text-sm font-mono font-bold text-zinc-300">
+                          {baselineText}
+                        </span>
+                        {baselineSub && (
+                          <span className="text-[10px] text-zinc-400 font-medium block">
+                            {baselineSub}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Arrow Indicator */}
+                      <div className="text-zinc-600">→</div>
+
+                      {/* Current Weight / Cardio (Attuale: with parenthesized notes!) */}
+                      <div className="text-center px-2 min-w-[75px]">
+                        <span className="text-[10px] uppercase font-bold text-zinc-400 block">
+                          Attuale
+                        </span>
+                        <span className="text-xs sm:text-sm font-mono font-black text-white">
+                          {currentText}
+                        </span>
+                        {currentSub && (
+                          <span className="text-[10px] text-amber-400 font-bold block">
+                            {currentSub}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="w-24 sm:w-28 text-right">
+                        {isTimeBased ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold">
+                            {exercise.id === 'g1_ex1' ? '10:30 min' : exercise.id === 'g1_ex10' ? 'Liv. 3-4' : 'Attivo'}
+                          </span>
+                        ) : status === 'increased' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-bold">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            <span>+{diff} kg</span>
+                          </span>
+                        ) : status === 'decreased' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold">
+                            <TrendingDown className="w-3.5 h-3.5" />
+                            <span>{diff} kg</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-xs font-bold">
+                            <Minus className="w-3 h-3" />
+                            <span>Invariato</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Edit Self-Service Button */}
+                      <button
+                        onClick={() =>
+                          setEditingExercise({
+                            exerciseId: exercise.id,
+                            exerciseName: exercise.name,
+                            baselineText,
+                            baselineSub,
+                            currentText,
+                            currentSub,
+                          })
+                        }
+                        className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-zinc-400 hover:text-amber-400 transition cursor-pointer active:scale-95 shadow-sm"
+                        title="Modifica testo e dati di questo esercizio"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                    {exercise.name}
+                ))}
+              </div>
+            </div>
+
+            {/* Annotations Section for this Day with AUTOMATIC TIMESTAMP */}
+            <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+                <div>
+                  <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                    <span>Annotazioni Mensili — {currentWorkoutDay.dayName}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      {dayAnnotations.length} note
+                    </span>
                   </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Appunti e sensazioni: data, ora e minuti vengono salvati automaticamente.
+                  </p>
                 </div>
 
-                {/* Evolution Metric Comparison */}
-                <div className="flex items-center gap-3 sm:gap-4 shrink-0 justify-between sm:justify-end">
-                  {/* Baseline Weight / Cardio (Inizio Mese: strictly NO parenthesis for Alzate) */}
-                  <div className="text-center px-2 min-w-[75px]">
-                    <span className="text-[10px] uppercase font-bold text-zinc-500 block">
-                      Inizio Mese
+                <button
+                  onClick={() => setShowAddAnnotation(!showAddAnnotation)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition active:scale-95 cursor-pointer shadow"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nuova Annotazione</span>
+                </button>
+              </div>
+
+              {/* New Annotation Form */}
+              {showAddAnnotation && (
+                <form onSubmit={handleAddAnnotation} className="p-4 rounded-2xl bg-zinc-900/60 border border-amber-500/30 space-y-3 animate-fade-in">
+                  <div className="flex items-center justify-between text-xs text-zinc-400">
+                    <span className="font-bold text-white">Scrivi una breve annotazione per {currentWorkoutDay.dayName}</span>
+                    <span className="font-mono text-[11px] text-amber-400">
+                      Data e ora automatiche al salvataggio
                     </span>
-                    <span className="text-xs sm:text-sm font-mono font-bold text-zinc-300">
-                      {baselineText}
+                  </div>
+                  <textarea
+                    rows={3}
+                    required
+                    value={newAnnotationText}
+                    onChange={(e) => setNewAnnotationText(e.target.value)}
+                    placeholder={`Es. Oggi in ${currentWorkoutDay.dayName} ho sentito più forza nelle serie di spinta, prossimo mese punto a +2kg...`}
+                    className="w-full bg-zinc-950 border border-zinc-800 focus:border-amber-500 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none resize-none"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAnnotation(false)}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold"
+                    >
+                      Annulla
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow"
+                    >
+                      Salva Annotazione
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* List of Annotations for this day */}
+              {dayAnnotations.length === 0 ? (
+                <p className="text-xs text-zinc-500 italic py-3 text-center">
+                  Nessuna annotazione registrata per {currentWorkoutDay.dayName}. Clicca "Nuova Annotazione" per aggiungerne una.
+                </p>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  {dayAnnotations.map((ann) => (
+                    <div
+                      key={ann.id}
+                      className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 flex items-start justify-between gap-3 group"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-[10px] font-bold text-zinc-300">
+                            {ann.date} • {ann.time}
+                          </span>
+                          <span className="text-[10px] font-semibold text-amber-400">
+                            {ann.dayName}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-200 leading-relaxed">
+                          {ann.text}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingAnnotation(ann);
+                            setEditAnnotationText(ann.text);
+                          }}
+                          className="text-zinc-500 hover:text-amber-400 p-1.5 rounded-lg hover:bg-zinc-800 transition"
+                          title="Modifica annotazione"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAnnotation(ann.id)}
+                          className="text-zinc-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-zinc-800 transition"
+                          title="Elimina annotazione"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ===================== VIEW 2: STORICO PERIODI SCHEDA (RANGE DATE) ===================== */}
+        {activeSubTab === 'periods' && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+                <div>
+                  <h2 className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-amber-400" />
+                    <span>Cronologia & Storico Periodi Scheda</span>
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Visualizza le schede che hai mantenuto nei diversi intervalli di date.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleOpenCreatePeriodModal}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black transition active:scale-95 shadow cursor-pointer self-start sm:self-auto"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>Archivia Nuovo Periodo</span>
+                </button>
+              </div>
+
+              {/* Active Period (In Corso) Card */}
+              <div className="relative rounded-2xl bg-gradient-to-br from-emerald-950/30 via-zinc-950 to-zinc-900 border border-emerald-500/40 p-4 sm:p-5 space-y-3 shadow-md">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                      Periodo Attivo Ora
                     </span>
-                    {baselineSub && (
-                      <span className="text-[10px] text-zinc-400 font-medium block">
-                        {baselineSub}
-                      </span>
-                    )}
+                    <span className="font-mono text-xs font-bold text-white">
+                      Dal {activePeriodStartDate} ad Oggi
+                    </span>
                   </div>
 
-                  {/* Arrow Indicator */}
-                  <div className="text-zinc-600">→</div>
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    Scheda in uso
+                  </span>
+                </div>
 
-                  {/* Current Weight / Cardio (Attuale: with parenthesized notes!) */}
-                  <div className="text-center px-2 min-w-[75px]">
-                    <span className="text-[10px] uppercase font-bold text-zinc-400 block">
-                      Attuale
-                    </span>
-                    <span className="text-xs sm:text-sm font-mono font-black text-white">
-                      {currentText}
-                    </span>
-                    {currentSub && (
-                      <span className="text-[10px] text-amber-400 font-bold block">
-                        {currentSub}
-                      </span>
-                    )}
-                  </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm sm:text-base font-bold text-white">
+                    Scheda Corrente con Modifiche Live
+                  </h3>
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    Questa è la scheda che stai attualmente seguendo in palestra. Quando vorrai inserire nuovi miglioramenti, peggioramenti o modifiche, <strong>clicca il tasto qui sotto prima di modificare</strong> per archiviare questo periodo.
+                  </p>
+                  <p className="text-[11px] text-emerald-300/90 pt-0.5 font-medium">
+                    💡 Se mantieni questa scheda fino al 30 Novembre senza fare modifiche, rimarrà automaticamente valida per tutto il mese.
+                  </p>
+                </div>
 
-                  {/* Status Badge */}
-                  <div className="w-24 sm:w-28 text-right">
-                    {isTimeBased ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold">
-                        {exercise.id === 'g1_ex1' ? '10:30 min' : exercise.id === 'g1_ex10' ? 'Liv. 3-4' : 'Attivo'}
-                      </span>
-                    ) : status === 'increased' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-bold">
-                        <TrendingUp className="w-3.5 h-3.5" />
-                        <span>+{diff} kg</span>
-                      </span>
-                    ) : status === 'decreased' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold">
-                        <TrendingDown className="w-3.5 h-3.5" />
-                        <span>{diff} kg</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-xs font-bold">
-                        <Minus className="w-3 h-3" />
-                        <span>Invariato</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Edit Self-Service Button */}
+                <div className="pt-1 flex items-center justify-between gap-3">
                   <button
-                    onClick={() =>
-                      setEditingExercise({
-                        exerciseId: exercise.id,
-                        exerciseName: exercise.name,
-                        baselineText,
-                        baselineSub,
-                        currentText,
-                        currentSub,
-                      })
-                    }
-                    className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-zinc-400 hover:text-amber-400 transition cursor-pointer active:scale-95 shadow-sm"
-                    title="Modifica testo e dati di questo esercizio"
+                    type="button"
+                    onClick={handleOpenCreatePeriodModal}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition active:scale-95 shadow cursor-pointer"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
+                    <Camera className="w-4 h-4 stroke-[2.5]" />
+                    <span>Salva Questo Periodo Prima di Cambiare Scheda</span>
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Annotations Section for this Day with AUTOMATIC TIMESTAMP */}
-        <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
-            <div>
-              <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
-                <span>Annotazioni Mensili — {currentWorkoutDay.dayName}</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  {dayAnnotations.length} note
-                </span>
-              </h3>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Appunti e sensazioni: data, ora e minuti vengono salvati automaticamente.
-              </p>
-            </div>
+              {/* List of Archived Periods */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                    <History className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Periodi Archiviati ({periods.length})</span>
+                  </h3>
+                  <span className="text-[11px] text-zinc-500">
+                    Dal più recente al meno recente
+                  </span>
+                </div>
 
-            <button
-              onClick={() => setShowAddAnnotation(!showAddAnnotation)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition active:scale-95 cursor-pointer shadow"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nuova Annotazione</span>
-            </button>
-          </div>
+                {periods.map((p) => (
+                  <div
+                    key={p.id}
+                    className="p-4 sm:p-5 rounded-2xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700/80 transition space-y-3 shadow-md"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-0.5 rounded-md font-mono text-xs font-black bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                            📅 {p.startDate} → {p.endDate}
+                          </span>
+                          {p.isInitialBaseline && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-800 text-zinc-400">
+                              Scheda Iniziale
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                          {p.title}
+                        </h4>
+                      </div>
 
-          {/* New Annotation Form */}
-          {showAddAnnotation && (
-            <form onSubmit={handleAddAnnotation} className="p-4 rounded-2xl bg-zinc-900/60 border border-amber-500/30 space-y-3 animate-fade-in">
-              <div className="flex items-center justify-between text-xs text-zinc-400">
-                <span className="font-bold text-white">Scrivi una breve annotazione per {currentWorkoutDay.dayName}</span>
-                <span className="font-mono text-[11px] text-amber-400">
-                  Data e ora automatiche al salvataggio
-                </span>
-              </div>
-              <textarea
-                rows={3}
-                required
-                value={newAnnotationText}
-                onChange={(e) => setNewAnnotationText(e.target.value)}
-                placeholder={`Es. Oggi in ${currentWorkoutDay.dayName} ho sentito più forza nelle serie di spinta, prossimo mese punto a +2kg...`}
-                className="w-full bg-zinc-950 border border-zinc-800 focus:border-amber-500 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none resize-none"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddAnnotation(false)}
-                  className="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow"
-                >
-                  Salva Annotazione
-                </button>
-              </div>
-            </form>
-          )}
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 pt-1 sm:pt-0">
+                        <button
+                          type="button"
+                          onClick={() => setViewingPeriod(p)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black transition active:scale-95 shadow cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Vedi Scheda Salvata</span>
+                        </button>
 
-          {/* List of Annotations for this day */}
-          {dayAnnotations.length === 0 ? (
-            <p className="text-xs text-zinc-500 italic py-3 text-center">
-              Nessuna annotazione registrata per {currentWorkoutDay.dayName}. Clicca "Nuova Annotazione" per aggiungerne una.
-            </p>
-          ) : (
-            <div className="space-y-3 pt-1">
-              {dayAnnotations.map((ann) => (
-                <div
-                  key={ann.id}
-                  className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 flex items-start justify-between gap-3 group"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-[10px] font-bold text-zinc-300">
-                        {ann.date} • {ann.time}
-                      </span>
-                      <span className="text-[10px] font-semibold text-amber-400">
-                        {ann.dayName}
+                        <button
+                          type="button"
+                          onClick={() => setEditingPeriodMeta(p)}
+                          className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-400 hover:text-white transition cursor-pointer"
+                          title="Modifica range date o titolo"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {!p.isInitialBaseline && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePeriod(p.id)}
+                            className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-400 hover:text-red-400 transition cursor-pointer"
+                            title="Elimina periodo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {p.notes && (
+                      <p className="text-xs text-zinc-300 bg-zinc-950/60 p-3 rounded-xl border border-zinc-850 leading-relaxed">
+                        {p.notes}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-zinc-850">
+                      <span>Dati congelati:</span>
+                      <span className="font-semibold text-zinc-300">
+                        {p.daysData?.length || 3} Giornate (Lunedì, Mercoledì, Venerdì)
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-200 leading-relaxed">
-                      {ann.text}
-                    </p>
                   </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => {
-                        setEditingAnnotation(ann);
-                        setEditAnnotationText(ann.text);
-                      }}
-                      className="text-zinc-500 hover:text-amber-400 p-1.5 rounded-lg hover:bg-zinc-800 transition"
-                      title="Modifica annotazione"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAnnotation(ann.id)}
-                      className="text-zinc-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-zinc-800 transition"
-                      title="Elimina annotazione"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
       {/* Modal 1: Edit Exercise Text & Values in Un Mese Dopo */}
@@ -1070,6 +1479,30 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal 3: Save Routine Version / Period */}
+      <SavePeriodModal
+        isOpen={isCreatePeriodModalOpen}
+        onClose={() => setIsCreatePeriodModalOpen(false)}
+        onSave={handleSaveNewPeriod}
+        defaultStartDate={periodDefaultStartDate}
+        defaultEndDate={periodDefaultEndDate}
+        defaultTitle={periodDefaultTitle}
+      />
+
+      {/* Modal 4: View Archived Period Routine Details */}
+      <PeriodDetailModal
+        period={viewingPeriod}
+        onClose={() => setViewingPeriod(null)}
+      />
+
+      {/* Modal 5: Edit Archived Period Metadata (dates, title, notes) */}
+      <EditPeriodModal
+        period={editingPeriodMeta}
+        onClose={() => setEditingPeriodMeta(null)}
+        onSave={handleSavePeriodMeta}
+        onDelete={handleDeletePeriod}
+      />
     </div>
   );
 };
