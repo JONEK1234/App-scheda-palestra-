@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Check, 
   HelpCircle, 
@@ -8,11 +8,13 @@ import {
   Pause, 
   RotateCcw, 
   Dumbbell, 
-  Flame,
-  ChevronRight
+  Flame, 
+  ChevronRight, 
+  Pencil 
 } from 'lucide-react';
 import { Exercise, StoredSetLog } from '../types/workout';
 import { ExerciseIllustration } from './ExerciseIllustration';
+import { InlineEditable } from './InlineEditable';
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -23,6 +25,9 @@ interface ExerciseCardProps {
   onOpenTutorial: (exercise: Exercise) => void;
   onTriggerRestTimer: (restSeconds: number) => void;
   accentColor?: string;
+  onEditExerciseText?: (exercise: Exercise) => void;
+  isInlineEditing?: boolean;
+  onUpdateExerciseField?: (exerciseId: string, field: string, value: string) => void;
 }
 
 export const ExerciseCard: React.FC<ExerciseCardProps> = ({
@@ -33,22 +38,25 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onApplyWeightToAllSets,
   onOpenTutorial,
   onTriggerRestTimer,
-  accentColor = '#ef4444'
+  accentColor = '#ef4444',
+  onEditExerciseText,
+  isInlineEditing = false,
+  onUpdateExerciseField,
 }) => {
   // Local state for countdown on time-based exercises (Tappeto, Plank, Cyclette, Vogatore)
   const [timeRemaining, setTimeRemaining] = useState<number>(exercise.timeDurationSeconds || 0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
   // Sync timer if duration changes
-  React.useEffect(() => {
+  useEffect(() => {
     setTimeRemaining(exercise.timeDurationSeconds || 0);
   }, [exercise.timeDurationSeconds]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isTimerRunning && timeRemaining > 0) {
       interval = setInterval(() => {
-        setTimeRemaining((prev) => {
+        setTimeRemaining((prev: number) => {
           if (prev <= 1) {
             setIsTimerRunning(false);
             onUpdateSetLog(exercise.id, 0, { completed: true });
@@ -112,43 +120,72 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                {exercise.category}
-              </span>
-              <span
+              <InlineEditable
+                isEditing={isInlineEditing}
+                value={exercise.category}
+                onChange={(val) => onUpdateExerciseField && onUpdateExerciseField(exercise.id, 'category', val)}
+                className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-400"
+              />
+              <InlineEditable
+                isEditing={isInlineEditing}
+                value={exercise.prescription}
+                onChange={(val) => onUpdateExerciseField && onUpdateExerciseField(exercise.id, 'prescription', val)}
                 className="px-2 py-0.5 rounded-md font-mono text-xs font-bold text-white tracking-wide"
                 style={{ backgroundColor: `${accentColor}33`, color: accentColor }}
-              >
-                {exercise.prescription}
-              </span>
+              />
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug">
-                {exercise.name}
-              </h3>
-              {exercise.weightNote && (
-                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300">
-                  {exercise.weightNote}
-                </span>
+              <InlineEditable
+                isEditing={isInlineEditing}
+                value={exercise.name}
+                onChange={(val) => onUpdateExerciseField && onUpdateExerciseField(exercise.id, 'name', val)}
+                as="h3"
+                className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug"
+              />
+              {(exercise.weightNote || isInlineEditing) && (
+                <InlineEditable
+                  isEditing={isInlineEditing}
+                  value={exercise.weightNote || ''}
+                  placeholder="+ Aggiungi nota carico"
+                  onChange={(val) => onUpdateExerciseField && onUpdateExerciseField(exercise.id, 'weightNote', val)}
+                  className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300"
+                />
               )}
             </div>
 
-            <p className="text-xs text-zinc-400 line-clamp-1 mt-0.5">
-              {exercise.setupDescription}
-            </p>
+            <InlineEditable
+              isEditing={isInlineEditing}
+              value={exercise.setupDescription}
+              onChange={(val) => onUpdateExerciseField && onUpdateExerciseField(exercise.id, 'setupDescription', val)}
+              as="p"
+              className="text-xs text-zinc-400 line-clamp-1 mt-0.5"
+            />
           </div>
         </div>
 
-        {/* Action Button: Open Tutorial & Guide */}
-        <button
-          onClick={() => onOpenTutorial(exercise)}
-          className="self-stretch sm:self-auto inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-semibold hover:text-white transition active:scale-95 cursor-pointer shrink-0"
-        >
-          <HelpCircle className="w-3.5 h-3.5 text-red-500" />
-          <span>Guida & Video</span>
-          <ChevronRight className="w-3 h-3 text-zinc-500" />
-        </button>
+        {/* Action Buttons: Edit Words & Open Tutorial */}
+        <div className="flex items-center gap-1.5 self-stretch sm:self-auto shrink-0">
+          {onEditExerciseText && (
+            <button
+              type="button"
+              onClick={() => onEditExerciseText(exercise)}
+              className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-500/50 text-zinc-400 hover:text-amber-400 transition active:scale-95 cursor-pointer shadow-sm"
+              title={`Modifica testo per ${exercise.name}`}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <button
+            onClick={() => onOpenTutorial(exercise)}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-semibold hover:text-white transition active:scale-95 cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-red-500" />
+            <span>Guida & Video</span>
+            <ChevronRight className="w-3 h-3 text-zinc-500" />
+          </button>
+        </div>
       </div>
 
       {/* Visual illustration preview bar (compact interactive trigger) */}

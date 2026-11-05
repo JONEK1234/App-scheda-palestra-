@@ -85,3 +85,24 @@ export interface MonthlyProgressSnapshot {
 }
 
 export type ActiveViewMode = 'workout' | 'notes' | 'month-after';
+
+export interface WorkoutCustomizations {
+  appTitle?: string;
+  appBadge?: string;
+  appSubtitle?: string;
+  completionMessage?: string;
+  dayOverrides?: Record<number, {
+    title?: string;
+    subtitle?: string;
+    dayName?: string;
+    estimatedDuration?: string;
+  }>;
+  exerciseOverrides?: Record<string, {
+    name?: string;
+    prescription?: string;
+    category?: any;
+    weightNote?: string;
+    gripType?: string;
+    setupDescription?: string;
+  }>;
+}

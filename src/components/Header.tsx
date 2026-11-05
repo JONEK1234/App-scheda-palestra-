@@ -1,6 +1,7 @@
 import React from 'react';
-import { Dumbbell, Timer, RotateCcw, CheckCircle, Flame, Database } from 'lucide-react';
+import { Dumbbell, Timer, RotateCcw, CheckCircle, Flame, Database, Pencil } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
+import { InlineEditable } from './InlineEditable';
 
 interface HeaderProps {
   completedCount: number;
@@ -9,6 +10,14 @@ interface HeaderProps {
   isTimerOpen: boolean;
   onResetSession: () => void;
   onOpenBackup?: () => void;
+  onToggleInlineEdit?: () => void;
+  isInlineEditing?: boolean;
+  restSeconds?: number;
+  appTitle?: string;
+  appBadge?: string;
+  appSubtitle?: string;
+  onUpdateAppTitle?: (val: string) => void;
+  onUpdateAppSubtitle?: (val: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,6 +27,14 @@ export const Header: React.FC<HeaderProps> = ({
   isTimerOpen,
   onResetSession,
   onOpenBackup,
+  onToggleInlineEdit,
+  isInlineEditing = false,
+  restSeconds = 90,
+  appTitle = 'Iron Routine',
+  appBadge = 'PRO',
+  appSubtitle = 'Scheda Palestra 3 Giorni',
+  onUpdateAppTitle,
+  onUpdateAppSubtitle,
 }) => {
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -33,16 +50,24 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="text-sm sm:text-base font-black tracking-wider text-white uppercase">
-                  Iron Routine
-                </h1>
+                <InlineEditable
+                  isEditing={isInlineEditing}
+                  value={appTitle}
+                  onChange={(val) => onUpdateAppTitle && onUpdateAppTitle(val)}
+                  as="h1"
+                  className="text-sm sm:text-base font-black tracking-wider text-white uppercase"
+                />
                 <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-1.5 py-0.2 rounded border border-red-500/30">
-                  PRO
+                  {appBadge}
                 </span>
               </div>
-              <p className="text-[10px] text-zinc-400 font-medium">
-                Scheda Palestra 3 Giorni
-              </p>
+              <InlineEditable
+                isEditing={isInlineEditing}
+                value={appSubtitle}
+                onChange={(val) => onUpdateAppSubtitle && onUpdateAppSubtitle(val)}
+                as="p"
+                className="text-[10px] text-zinc-400 font-medium"
+              />
             </div>
           </div>
 
@@ -60,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Rest Timer Button */}
+            {/* Rest Timer Button with time display */}
             <button
               onClick={onToggleTimer}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 cursor-pointer ${
@@ -68,11 +93,30 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-red-600/20 border-red-500/50 text-red-400 shadow-sm'
                   : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
               }`}
-              title="Apri Cronometro di Recupero"
+              title="Apri Cronometro di Recupero (tempo personalizzabile)"
             >
               <Timer className="w-3.5 h-3.5 text-red-500" />
               <span className="hidden sm:inline">Recupero</span>
+              <span className="font-mono text-[10px] text-zinc-400 hidden xs:inline">{restSeconds}s</span>
             </button>
+
+            {/* Pencil Button to Toggle Inline Edit Mode */}
+            {onToggleInlineEdit && (
+              <button
+                onClick={onToggleInlineEdit}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 cursor-pointer shadow-sm ${
+                  isInlineEditing
+                    ? 'bg-amber-500 text-black border-amber-400 shadow-amber-500/30 font-bold'
+                    : 'bg-zinc-900 border-zinc-800 text-amber-400 hover:text-amber-300 hover:bg-zinc-800'
+                }`}
+                title={isInlineEditing ? 'Modalità Modifica Attiva' : 'Tocca per modificare qualsiasi parola della scheda'}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {isInlineEditing ? 'Modifica ON' : 'Modifica Testi'}
+                </span>
+              </button>
+            )}
 
             {/* PWA Install Button */}
             <PWAInstallButton />

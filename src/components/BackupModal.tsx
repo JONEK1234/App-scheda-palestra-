@@ -12,7 +12,7 @@ import {
   Share2,
   HardDrive
 } from 'lucide-react';
-import { NoteEntry, WorkoutSessionLogs } from '../types/workout';
+import { NoteEntry, WorkoutSessionLogs, WorkoutCustomizations } from '../types/workout';
 
 interface BackupModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ interface BackupModalProps {
   logs: WorkoutSessionLogs;
   bodyWeight: string;
   notes: NoteEntry[];
+  workoutCustomizations?: WorkoutCustomizations;
   onRestoreData: (restoredData: {
     logs?: WorkoutSessionLogs;
     bodyWeight?: string;
@@ -27,6 +28,7 @@ interface BackupModalProps {
     monthlySnapshots?: any;
     monthlyAnnotations?: any;
     customOverrides?: any;
+    workoutCustomizations?: WorkoutCustomizations;
   }) => void;
 }
 
@@ -36,6 +38,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   logs,
   bodyWeight,
   notes,
+  workoutCustomizations,
   onRestoreData,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -50,6 +53,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
     let monthlySnapshots = {};
     let monthlyAnnotations = [];
     let customOverrides = {};
+    let activeCustomizations = workoutCustomizations || {};
 
     try {
       const snapRaw = localStorage.getItem('ironroutine_monthly_snapshots_v2');
@@ -66,9 +70,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       if (covRaw) customOverrides = JSON.parse(covRaw);
     } catch {}
 
+    try {
+      const wCustomRaw = localStorage.getItem('ironroutine_workout_customizations_v1');
+      if (wCustomRaw) activeCustomizations = JSON.parse(wCustomRaw);
+    } catch {}
+
     return {
       appName: 'IronRoutine PRO',
-      version: '2.0',
+      version: '2.1',
       exportDate: new Date().toISOString(),
       exportDateFormatted: `${new Date().toLocaleDateString('it-IT')} ${new Date().toLocaleTimeString('it-IT')}`,
       data: {
@@ -78,6 +87,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         monthlySnapshots,
         monthlyAnnotations,
         customOverrides,
+        workoutCustomizations: activeCustomizations,
       }
     };
   };
@@ -178,11 +188,12 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       monthlySnapshots: data.monthlySnapshots,
       monthlyAnnotations: data.monthlyAnnotations,
       customOverrides: data.customOverrides,
+      workoutCustomizations: data.workoutCustomizations,
     });
 
     setStatusMessage({
       type: 'success',
-      text: 'Backup caricato e ripristinato con successo! Tutti i dati e le note sono sincronizzati.'
+      text: 'Backup caricato e ripristinato con successo! Tutti i dati, le parole personalizzate e le note sono sincronizzati.'
     });
   };
 

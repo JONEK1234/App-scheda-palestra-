@@ -7,24 +7,30 @@ interface RestTimerProps {
   isOpen: boolean;
   onClose: () => void;
   accentColor?: string;
+  onUpdateDefaultRestSeconds?: (secs: number) => void;
 }
 
 export const RestTimer: React.FC<RestTimerProps> = ({
   initialSeconds = 90,
   isOpen,
   onClose,
-  accentColor = '#ef4444'
+  accentColor = '#ef4444',
+  onUpdateDefaultRestSeconds,
 }) => {
   const [totalSeconds, setTotalSeconds] = useState(initialSeconds);
   const [secondsRemaining, setSecondsRemaining] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [customInput, setCustomInput] = useState<string>(String(initialSeconds));
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [savedAsDefault, setSavedAsDefault] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setTotalSeconds(initialSeconds);
     setSecondsRemaining(initialSeconds);
+    setCustomInput(String(initialSeconds));
     setIsRunning(true);
   }, [initialSeconds]);
 
@@ -58,7 +64,27 @@ export const RestTimer: React.FC<RestTimerProps> = ({
   const setPreset = (secs: number) => {
     setTotalSeconds(secs);
     setSecondsRemaining(secs);
+    setCustomInput(String(secs));
     setIsRunning(true);
+  };
+
+  const handleApplyCustomSeconds = (secsVal: number, setAsDefault: boolean = false) => {
+    if (isNaN(secsVal) || secsVal <= 0) return;
+    setTotalSeconds(secsVal);
+    setSecondsRemaining(secsVal);
+    setIsRunning(true);
+    if (setAsDefault && onUpdateDefaultRestSeconds) {
+      onUpdateDefaultRestSeconds(secsVal);
+      setSavedAsDefault(true);
+      setTimeout(() => setSavedAsDefault(false), 2000);
+    }
+  };
+
+  const adjustSeconds = (delta: number) => {
+    const next = Math.max(10, (secondsRemaining || totalSeconds) + delta);
+    setTotalSeconds(next);
+    setSecondsRemaining(next);
+    setCustomInput(String(next));
   };
 
   const toggleRunning = () => {
@@ -112,9 +138,9 @@ export const RestTimer: React.FC<RestTimerProps> = ({
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-950/95 border border-zinc-800 shadow-2xl backdrop-blur-md overflow-hidden text-zinc-100 animate-slide-up">
+    <div className="fixed bottom-4 right-4 z-40 w-84 max-w-[calc(100vw-2rem)] rounded-3xl bg-zinc-950/95 border border-zinc-800 shadow-2xl backdrop-blur-md overflow-hidden text-zinc-100 animate-slide-up">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-3.5 py-2 bg-zinc-900/80 border-b border-zinc-800/80">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-900/80 border-b border-zinc-800/80">
         <div className="flex items-center gap-2 text-xs font-bold text-white tracking-wide">
           <Timer className="w-3.5 h-3.5 text-red-500" />
           <span>Timer di Recupero</span>
@@ -179,14 +205,22 @@ export const RestTimer: React.FC<RestTimerProps> = ({
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-3 mt-2">
+        {/* Quick Adjusters (+/- 15s) and Main Action Controls */}
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            onClick={() => adjustSeconds(-15)}
+            className="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-[11px] font-bold text-zinc-300 border border-zinc-800 transition active:scale-95"
+            title="Sottrai 15 secondi"
+          >
+            -15s
+          </button>
+
           <button
             onClick={resetTimer}
             className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition active:scale-95"
             title="Azzera"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
           <button
@@ -206,15 +240,23 @@ export const RestTimer: React.FC<RestTimerProps> = ({
               </>
             )}
           </button>
+
+          <button
+            onClick={() => adjustSeconds(+15)}
+            className="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-[11px] font-bold text-zinc-300 border border-zinc-800 transition active:scale-95"
+            title="Aggiungi 15 secondi"
+          >
+            +15s
+          </button>
         </div>
 
-        {/* Quick Presets */}
-        <div className="grid grid-cols-4 gap-1.5 w-full mt-3.5 pt-3 border-t border-zinc-900">
-          {[30, 60, 90, 120].map((secs) => (
+        {/* Presets Row */}
+        <div className="grid grid-cols-5 gap-1 w-full mt-3 pt-3 border-t border-zinc-900">
+          {[30, 45, 60, 90, 120].map((secs) => (
             <button
               key={secs}
               onClick={() => setPreset(secs)}
-              className={`py-1 rounded-lg text-[11px] font-bold transition border ${
+              className={`py-1 rounded-lg text-[10px] font-bold transition border ${
                 totalSeconds === secs && secondsRemaining > 0
                   ? 'bg-zinc-800 text-white border-zinc-700'
                   : 'bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 border-zinc-800/80 hover:bg-zinc-800'
@@ -223,6 +265,46 @@ export const RestTimer: React.FC<RestTimerProps> = ({
               {secs}s
             </button>
           ))}
+        </div>
+
+        {/* Custom Seconds Input Form */}
+        <div className="w-full mt-2.5 pt-2 border-t border-zinc-900/80">
+          <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
+            <span className="font-semibold text-zinc-300">Tempo personalizzato:</span>
+            {savedAsDefault ? (
+              <span className="text-[10px] font-bold text-emerald-400 animate-pulse">
+                ✓ Salvato come predefinito!
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleApplyCustomSeconds(parseInt(customInput, 10), true)}
+                className="text-[10px] font-bold text-amber-400 hover:underline cursor-pointer"
+              >
+                Imposta come default
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min="5"
+              max="900"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              placeholder="Secondi (es. 45, 75, 150)"
+              className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-red-500 rounded-xl px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none"
+            />
+            <span className="text-[11px] text-zinc-500 font-bold">sec</span>
+            <button
+              type="button"
+              onClick={() => handleApplyCustomSeconds(parseInt(customInput, 10), false)}
+              className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition active:scale-95"
+            >
+              Applica
+            </button>
+          </div>
         </div>
       </div>
     </div>
