@@ -15,7 +15,10 @@ import {
   Dumbbell, 
   Info,
   Layers,
-  BookOpen
+  BookOpen,
+  Edit3,
+  X,
+  Save
 } from 'lucide-react';
 import { NoteEntry, DayOfWeekId } from '../types/workout';
 
@@ -24,6 +27,7 @@ import { StructuredResocontoView } from './StructuredResocontoView';
 interface FullPageNotesViewProps {
   notes: NoteEntry[];
   onAddNote: (note: Omit<NoteEntry, 'id' | 'timestamp'>) => void;
+  onUpdateNote: (note: NoteEntry) => void;
   onDeleteNote: (id: string) => void;
   onBackToWorkout: () => void;
   activeDayId: DayOfWeekId;
@@ -33,6 +37,7 @@ interface FullPageNotesViewProps {
 export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
   notes,
   onAddNote,
+  onUpdateNote,
   onDeleteNote,
   onBackToWorkout,
   activeDayId,
@@ -46,7 +51,50 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [newDayId, setNewDayId] = useState<DayOfWeekId | undefined>(activeDayId);
+  const [newBadge, setNewBadge] = useState('Nota Personale');
   const [copied, setCopied] = useState(false);
+
+  // Edit Note Modal State
+  const [editingNote, setEditingNote] = useState<NoteEntry | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editDayId, setEditDayId] = useState<DayOfWeekId | undefined>(1);
+  const [editDayName, setEditDayName] = useState('Lunedì');
+  const [editBadge, setEditBadge] = useState('');
+  const [editDate, setEditDate] = useState('');
+
+  const openEditModal = (note: NoteEntry) => {
+    setEditingNote(note);
+    setEditTitle(note.title);
+    setEditContent(note.content);
+    setEditDayId(note.dayId);
+    setEditDayName(note.dayName || 'Lunedì');
+    setEditBadge(note.badge || '');
+    setEditDate(note.date);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNote || !editTitle.trim() || !editContent.trim()) return;
+
+    const dayNames: Record<number, string> = { 1: 'Lunedì', 2: 'Mercoledì', 3: 'Venerdì' };
+    const updated: NoteEntry = {
+      ...editingNote,
+      title: editTitle.trim(),
+      content: editContent.trim(),
+      dayId: editDayId,
+      dayName: editDayId ? dayNames[editDayId] : undefined,
+      badge: editBadge.trim() || undefined,
+      date: editDate.trim() || editingNote.date,
+    };
+
+    onUpdateNote(updated);
+    if (selectedNote?.id === updated.id) {
+      setSelectedNote(updated);
+    }
+    setEditingNote(null);
+  };
 
   // Filter notes: optionally filter by day or view all
   const [dayFilter, setDayFilter] = useState<'all' | DayOfWeekId>(activeDayId);
@@ -63,20 +111,22 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
     const now = new Date();
     const dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
     const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const dayNames: Record<number, string> = { 1: 'Lunedì', 2: 'Mercoledì', 3: 'Venerdì' };
 
     onAddNote({
       title: newTitle.trim(),
       date: dateStr,
       time: timeStr,
-      dayId: activeDayId,
-      dayName: activeDayName,
+      dayId: newDayId,
+      dayName: newDayId ? dayNames[newDayId] : undefined,
       content: newContent.trim(),
-      badge: 'Nota Personale',
+      badge: newBadge.trim() || 'Nota Personale',
       isCustom: true,
     });
 
     setNewTitle('');
     setNewContent('');
+    setNewBadge('Nota Personale');
     setIsCreating(false);
   };
 
@@ -110,6 +160,29 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
             </button>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => openEditModal(selectedNote)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-amber-400 hover:text-amber-300 text-xs font-semibold transition active:scale-95 cursor-pointer"
+                title="Modifica titolo e contenuto di questa nota"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Modifica</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (confirm(`Vuoi davvero eliminare la nota "${selectedNote.title}"?`)) {
+                    onDeleteNote(selectedNote.id);
+                    setSelectedNote(null);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-red-950/40 border border-zinc-800 text-red-400 hover:text-red-300 text-xs font-semibold transition active:scale-95 cursor-pointer"
+                title="Elimina nota definitivamente"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Elimina</span>
+              </button>
+
               <button
                 onClick={() => handleCopyNoteContent(selectedNote.content)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-medium transition cursor-pointer"
@@ -500,6 +573,37 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                    Giorno di Riferimento
+                  </label>
+                  <select
+                    value={newDayId || ''}
+                    onChange={(e) => setNewDayId(e.target.value ? Number(e.target.value) as DayOfWeekId : undefined)}
+                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="1">Lunedì (Push & Spalle)</option>
+                    <option value="2">Mercoledì (Pull & Dorso)</option>
+                    <option value="3">Venerdì (Legs & Gambe)</option>
+                    <option value="">Tutte le Giornate / Generale</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                    Etichetta / Badge
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Es. Nota Personale, Tecnica, Miglioramenti"
+                    value={newBadge}
+                    onChange={(e) => setNewBadge(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
                   Testo e Contenuto della Nota
@@ -563,7 +667,7 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                 onClick={() => setSelectedNote(note)}
                 className="group relative rounded-3xl bg-zinc-950 hover:bg-zinc-900/80 border border-zinc-800 hover:border-emerald-500/50 p-5 sm:p-6 shadow-xl transition-all duration-200 cursor-pointer overflow-hidden"
               >
-                {/* Ranking Index Pill */}
+                {/* Ranking Index Pill & Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-300">
@@ -593,20 +697,30 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                     )}
                   </div>
 
-                  {note.isCustom && (
+                  {/* Edit and Delete Actions on ANY note */}
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm('Vuoi eliminare questa nota personale?')) {
+                      type="button"
+                      onClick={() => openEditModal(note)}
+                      className="text-zinc-400 hover:text-amber-300 p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-amber-500/40 transition active:scale-95"
+                      title="Modifica questa nota"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`Vuoi davvero eliminare la nota "${note.title}"?`)) {
                           onDeleteNote(note.id);
                         }
                       }}
-                      className="text-zinc-600 hover:text-red-400 p-1.5 rounded-lg transition"
+                      className="text-zinc-400 hover:text-red-400 p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-red-500/40 transition active:scale-95"
                       title="Elimina nota"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                     </button>
-                  )}
+                  </div>
                 </div>
 
                 <h3 className="text-base sm:text-lg font-black text-white group-hover:text-emerald-300 transition tracking-tight mb-2">
@@ -631,6 +745,120 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
           )}
         </div>
       </main>
+
+      {/* Edit Note Modal */}
+      {editingNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 shadow-2xl p-5 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-amber-400" />
+                <h3 className="text-base font-black text-white">Modifica Nota</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingNote(null)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                  Titolo della Nota
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                    Giorno di Riferimento
+                  </label>
+                  <select
+                    value={editDayId || ''}
+                    onChange={(e) => {
+                      const val = e.target.value ? Number(e.target.value) as DayOfWeekId : undefined;
+                      setEditDayId(val);
+                      const dayNames: Record<number, string> = { 1: 'Lunedì', 2: 'Mercoledì', 3: 'Venerdì' };
+                      setEditDayName(val ? dayNames[val] : 'Tutte le Giornate');
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="1">Lunedì</option>
+                    <option value="2">Mercoledì</option>
+                    <option value="3">Venerdì</option>
+                    <option value="">Tutte le Giornate</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                    Etichetta / Badge
+                  </label>
+                  <input
+                    type="text"
+                    value={editBadge}
+                    onChange={(e) => setEditBadge(e.target.value)}
+                    placeholder="Es. Inizio Mese, Tecnica"
+                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                  Data Registrata
+                </label>
+                <input
+                  type="text"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                  Testo e Contenuto della Nota
+                </label>
+                <textarea
+                  rows={8}
+                  required
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl p-3.5 text-xs sm:text-sm text-white focus:outline-none resize-none leading-relaxed select-text font-sans"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingNote(null)}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 text-xs font-semibold"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Salva Modifiche</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

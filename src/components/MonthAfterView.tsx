@@ -15,7 +15,10 @@ import {
   Save, 
   History, 
   AlertCircle,
-  Award
+  Award,
+  Edit3,
+  X,
+  RotateCcw
 } from 'lucide-react';
 import { 
   DayOfWeekId, 
@@ -24,6 +27,13 @@ import {
   DayMonthlyAnnotation,
   MonthlyProgressSnapshot 
 } from '../types/workout';
+
+export interface ExerciseMonthOverride {
+  baselineText?: string;
+  baselineSub?: string;
+  currentText?: string;
+  currentSub?: string;
+}
 
 interface MonthAfterViewProps {
   days: WorkoutDay[];
@@ -35,6 +45,7 @@ interface MonthAfterViewProps {
 
 const STORAGE_MONTHLY_KEY = 'ironroutine_monthly_snapshots_v2';
 const STORAGE_MONTHLY_ANNOTATIONS_KEY = 'ironroutine_monthly_annotations_v2';
+const STORAGE_CUSTOM_OVERRIDES_KEY = 'ironroutine_custom_month_overrides_v1';
 
 export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
   days,
@@ -276,6 +287,71 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
   };
 
+  // Custom user text overrides for "Un Mese Dopo" (persisted)
+  const [customOverrides, setCustomOverrides] = useState<Record<string, ExerciseMonthOverride>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_CUSTOM_OVERRIDES_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_CUSTOM_OVERRIDES_KEY, JSON.stringify(customOverrides));
+    } catch {}
+  }, [customOverrides]);
+
+  // Exercise text edit modal state
+  const [editingExercise, setEditingExercise] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+    baselineText: string;
+    baselineSub: string;
+    currentText: string;
+    currentSub: string;
+  } | null>(null);
+
+  // Annotation edit state
+  const [editingAnnotation, setEditingAnnotation] = useState<DayMonthlyAnnotation | null>(null);
+  const [editAnnotationText, setEditAnnotationText] = useState('');
+
+  const handleSaveExerciseOverride = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExercise) return;
+    setCustomOverrides((prev) => ({
+      ...prev,
+      [editingExercise.exerciseId]: {
+        baselineText: editingExercise.baselineText.trim(),
+        baselineSub: editingExercise.baselineSub.trim(),
+        currentText: editingExercise.currentText.trim(),
+        currentSub: editingExercise.currentSub.trim(),
+      },
+    }));
+    setEditingExercise(null);
+  };
+
+  const handleResetExerciseOverride = (exerciseId: string) => {
+    setCustomOverrides((prev) => {
+      const next = { ...prev };
+      delete next[exerciseId];
+      return next;
+    });
+    setEditingExercise(null);
+  };
+
+  const handleSaveEditedAnnotation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAnnotation || !editAnnotationText.trim()) return;
+    setAnnotations((prev) =>
+      prev.map((a) =>
+        a.id === editingAnnotation.id ? { ...a, text: editAnnotationText.trim() } : a
+      )
+    );
+    setEditingAnnotation(null);
+    setEditAnnotationText('');
+  };
+
   // Helper to extract numeric current weight from user logs
   const getExerciseCurrentWeight = (exerciseId: string, defaultWeightKg?: number | string): number => {
     const logs = currentLogs[exerciseId];
@@ -321,6 +397,15 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         status = 'stable';
       }
 
+      // Apply user custom override if present
+      const override = customOverrides[ex.id];
+      if (override) {
+        if (override.baselineText !== undefined && override.baselineText !== '') baselineText = override.baselineText;
+        if (override.baselineSub !== undefined) baselineSub = override.baselineSub;
+        if (override.currentText !== undefined && override.currentText !== '') currentText = override.currentText;
+        if (override.currentSub !== undefined) currentSub = override.currentSub;
+      }
+
       return {
         exercise: ex,
         isTimeBased: true,
@@ -332,6 +417,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         currentSub,
         diff: 0,
         status,
+        isOverridden: !!override,
       };
     }
 
@@ -343,17 +429,32 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
     if (diff > 0) status = 'increased';
     else if (diff < 0) status = 'decreased';
 
+    let baselineText = baseline > 0 ? `${baseline} kg` : 'Corpo libero';
+    let baselineSub = ''; // Non mettere la parentesi nell'inizio come richiesto!
+    let currentText = current > 0 ? `${current} kg` : 'Corpo libero';
+    let currentSub = ex.id === 'g1_ex5' ? '(un po’ pesanti)' : ex.id === 'g1_ex6' ? '(leggermente pesanti)' : '';
+
+    // Apply user custom override if present
+    const override = customOverrides[ex.id];
+    if (override) {
+      if (override.baselineText !== undefined && override.baselineText !== '') baselineText = override.baselineText;
+      if (override.baselineSub !== undefined) baselineSub = override.baselineSub;
+      if (override.currentText !== undefined && override.currentText !== '') currentText = override.currentText;
+      if (override.currentSub !== undefined) currentSub = override.currentSub;
+    }
+
     return {
       exercise: ex,
       isTimeBased: false,
       baseline,
-      baselineText: baseline > 0 ? `${baseline} kg` : 'Corpo libero',
-      baselineSub: '', // Non mettere la parentesi nell'inizio come richiesto!
+      baselineText,
+      baselineSub,
       current,
-      currentText: current > 0 ? `${current} kg` : 'Corpo libero',
-      currentSub: ex.id === 'g1_ex5' ? '(un po’ pesanti)' : ex.id === 'g1_ex6' ? '(leggermente pesanti)' : '',
+      currentText,
+      currentSub,
       diff,
       status,
+      isOverridden: !!override,
     };
   });
 
@@ -557,7 +658,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
           </div>
 
           <div className="divide-y divide-zinc-900">
-            {exercisesComparison.map(({ exercise, isTimeBased, baselineText, baselineSub, currentText, currentSub, diff, status }) => (
+            {exercisesComparison.map(({ exercise, isTimeBased, baselineText, baselineSub, currentText, currentSub, diff, status, isOverridden }) => (
               <div
                 key={exercise.id}
                 className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition"
@@ -575,6 +676,11 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                         {exercise.weightNote}
                       </span>
                     )}
+                    {isOverridden && (
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        Personalizzato
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
                     {exercise.name}
@@ -582,7 +688,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                 </div>
 
                 {/* Evolution Metric Comparison */}
-                <div className="flex items-center gap-4 shrink-0 justify-between sm:justify-end">
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0 justify-between sm:justify-end">
                   {/* Baseline Weight / Cardio (Inizio Mese: strictly NO parenthesis for Alzate) */}
                   <div className="text-center px-2 min-w-[75px]">
                     <span className="text-[10px] uppercase font-bold text-zinc-500 block">
@@ -617,7 +723,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                   </div>
 
                   {/* Status Badge */}
-                  <div className="w-28 text-right">
+                  <div className="w-24 sm:w-28 text-right">
                     {isTimeBased ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold">
                         {exercise.id === 'g1_ex1' ? '10:30 min' : exercise.id === 'g1_ex10' ? 'Liv. 3-4' : 'Attivo'}
@@ -639,6 +745,24 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                       </span>
                     )}
                   </div>
+
+                  {/* Edit Self-Service Button */}
+                  <button
+                    onClick={() =>
+                      setEditingExercise({
+                        exerciseId: exercise.id,
+                        exerciseName: exercise.name,
+                        baselineText,
+                        baselineSub,
+                        currentText,
+                        currentSub,
+                      })
+                    }
+                    className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-zinc-400 hover:text-amber-400 transition cursor-pointer active:scale-95 shadow-sm"
+                    title="Modifica testo e dati di questo esercizio"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -730,19 +854,222 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteAnnotation(ann.id)}
-                    className="text-zinc-600 hover:text-red-400 p-1 rounded-lg transition shrink-0"
-                    title="Elimina annotazione"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        setEditingAnnotation(ann);
+                        setEditAnnotationText(ann.text);
+                      }}
+                      className="text-zinc-500 hover:text-amber-400 p-1.5 rounded-lg hover:bg-zinc-800 transition"
+                      title="Modifica annotazione"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAnnotation(ann.id)}
+                      className="text-zinc-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-zinc-800 transition"
+                      title="Elimina annotazione"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {/* Modal 1: Edit Exercise Text & Values in Un Mese Dopo */}
+      {editingExercise && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">
+                    Modifica Testo & Dati
+                  </h3>
+                  <p className="text-xs text-amber-400 font-medium">
+                    {editingExercise.exerciseName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingExercise(null)}
+                className="text-zinc-500 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveExerciseOverride} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Inizio Mese */}
+                <div className="space-y-2 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
+                    Inizio Mese (Valore)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingExercise.baselineText}
+                    onChange={(e) =>
+                      setEditingExercise({
+                        ...editingExercise,
+                        baselineText: e.target.value,
+                      })
+                    }
+                    placeholder="es. 5 kg oppure 10:00 min"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none"
+                  />
+
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block pt-1">
+                    Dettagli Inizio Mese (Opzionale)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingExercise.baselineSub}
+                    onChange={(e) =>
+                      setEditingExercise({
+                        ...editingExercise,
+                        baselineSub: e.target.value,
+                      })
+                    }
+                    placeholder="es. Pend. 4 • Vel. 8.5 (o vuoto)"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none"
+                  />
+                </div>
+
+                {/* Attuale */}
+                <div className="space-y-2 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
+                    Attuale (Valore)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingExercise.currentText}
+                    onChange={(e) =>
+                      setEditingExercise({
+                        ...editingExercise,
+                        currentText: e.target.value,
+                      })
+                    }
+                    placeholder="es. 5 kg oppure 10:30 min"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none"
+                  />
+
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block pt-1">
+                    Nota Attuale (es. tra parentesi)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingExercise.currentSub}
+                    onChange={(e) =>
+                      setEditingExercise({
+                        ...editingExercise,
+                        currentSub: e.target.value,
+                      })
+                    }
+                    placeholder="es. (un po’ pesanti) o Resist. 7:30 → 10:30"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-amber-300 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                {customOverrides[editingExercise.exerciseId] ? (
+                  <button
+                    type="button"
+                    onClick={() => handleResetExerciseOverride(editingExercise.exerciseId)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 hover:border-red-500/40 text-zinc-400 hover:text-red-400 text-xs font-semibold transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Ripristina Default</span>
+                  </button>
+                ) : (
+                  <span />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingExercise(null)}
+                    className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Salva Modifiche</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Edit Annotation */}
+      {editingAnnotation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">
+                    Modifica Annotazione
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    {editingAnnotation.date} • {editingAnnotation.time} ({editingAnnotation.dayName})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingAnnotation(null)}
+                className="text-zinc-500 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedAnnotation} className="space-y-4">
+              <textarea
+                rows={4}
+                required
+                value={editAnnotationText}
+                onChange={(e) => setEditAnnotationText(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none resize-none leading-relaxed"
+              />
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingAnnotation(null)}
+                  className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Salva Modifica</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

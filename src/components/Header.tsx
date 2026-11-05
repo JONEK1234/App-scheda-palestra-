@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dumbbell, Timer, RotateCcw, CheckCircle, Flame } from 'lucide-react';
+import { Dumbbell, Timer, RotateCcw, CheckCircle, Flame, Database } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onToggleTimer: () => void;
   isTimerOpen: boolean;
   onResetSession: () => void;
+  onOpenBackup?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTimer,
   isTimerOpen,
   onResetSession,
+  onOpenBackup,
 }) => {
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -46,6 +48,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Tools */}
           <div className="flex items-center gap-2">
+            {/* Backup & Sync Button */}
+            {onOpenBackup && (
+              <button
+                onClick={onOpenBackup}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold transition active:scale-95 cursor-pointer shadow-sm"
+                title="Backup e Sincronizzazione Dati (Scarica o Carica)"
+              >
+                <Database className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">Backup Dati</span>
+              </button>
+            )}
+
             {/* Rest Timer Button */}
             <button
               onClick={onToggleTimer}

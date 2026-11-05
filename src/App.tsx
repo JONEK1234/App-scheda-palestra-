@@ -18,6 +18,7 @@ import { BodyWeightWidget } from './components/BodyWeightWidget';
 import { HistoryModal } from './components/HistoryModal';
 import { FullPageNotesView } from './components/FullPageNotesView';
 import { MonthAfterView } from './components/MonthAfterView';
+import { BackupModal } from './components/BackupModal';
 import { DaySelector } from './components/DaySelector';
 import { ExerciseCard } from './components/ExerciseCard';
 import { ExerciseModal } from './components/ExerciseModal';
@@ -136,8 +137,59 @@ export default function App() {
     setNotes((prev) => [newNote, ...prev]);
   };
 
+  const handleUpdateNote = (updated: NoteEntry) => {
+    setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+  };
+
   const handleDeleteNote = (id: string) => {
     setNotes((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  // Backup & Restore Modal state
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+
+  // Restore all application data from backup
+  const handleRestoreData = (restored: {
+    logs?: WorkoutSessionLogs;
+    bodyWeight?: string;
+    notes?: NoteEntry[];
+    monthlySnapshots?: any;
+    monthlyAnnotations?: any;
+    customOverrides?: any;
+  }) => {
+    if (restored.logs) {
+      setLogs(restored.logs);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(restored.logs));
+      } catch {}
+    }
+    if (restored.bodyWeight) {
+      setBodyWeight(restored.bodyWeight);
+      try {
+        localStorage.setItem(BODYWEIGHT_STORAGE_KEY, restored.bodyWeight);
+      } catch {}
+    }
+    if (restored.notes && Array.isArray(restored.notes)) {
+      setNotes(restored.notes);
+      try {
+        localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(restored.notes));
+      } catch {}
+    }
+    if (restored.monthlySnapshots) {
+      try {
+        localStorage.setItem('ironroutine_monthly_snapshots_v2', JSON.stringify(restored.monthlySnapshots));
+      } catch {}
+    }
+    if (restored.monthlyAnnotations) {
+      try {
+        localStorage.setItem('ironroutine_monthly_annotations_v2', JSON.stringify(restored.monthlyAnnotations));
+      } catch {}
+    }
+    if (restored.customOverrides) {
+      try {
+        localStorage.setItem('ironroutine_custom_month_overrides_v1', JSON.stringify(restored.customOverrides));
+      } catch {}
+    }
   };
 
   // Modal for technical guide & tutorial video
@@ -273,6 +325,7 @@ export default function App() {
       <FullPageNotesView
         notes={notes}
         onAddNote={handleAddNote}
+        onUpdateNote={handleUpdateNote}
         onDeleteNote={handleDeleteNote}
         onBackToWorkout={() => setViewMode('workout')}
         activeDayId={selectedDayId}
@@ -307,6 +360,7 @@ export default function App() {
         onToggleTimer={() => setIsRestTimerOpen(!isRestTimerOpen)}
         isTimerOpen={isRestTimerOpen}
         onResetSession={handleResetCurrentDay}
+        onOpenBackup={() => setIsBackupModalOpen(true)}
       />
 
       {/* Main Container */}
@@ -394,37 +448,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Only visible on Lunedì (Day 1): Note & Cronologia Miglioramenti */}
-        {selectedDayId === 1 && (
-          <button
-            onClick={() => setViewMode('notes')}
-            className="w-full flex items-center justify-between p-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-950 hover:bg-zinc-850 border border-emerald-500/40 text-zinc-200 hover:text-white transition shadow-lg active:scale-[0.99] cursor-pointer group animate-fade-in"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs sm:text-sm font-bold text-white group-hover:text-emerald-300 transition">
-                    Note & Cronologia Miglioramenti (Lunedì)
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    {notes.filter((n) => n.dayId === 1 || !n.dayId).length} Note
-                  </span>
-                </div>
-                <span className="text-[11px] text-zinc-400">
-                  Resoconto crescita muscolare (03/11), carichi 26/10 e progressione
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 shrink-0">
-              <span className="hidden sm:inline">Apri a schermo intero</span>
-              <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition" />
-            </div>
-          </button>
-        )}
-
         {/* List of Exercises for the Day */}
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
@@ -478,6 +501,16 @@ export default function App() {
       <HistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
+      />
+
+      {/* Backup & Data Synchronization Modal */}
+      <BackupModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        logs={logs}
+        bodyWeight={bodyWeight}
+        notes={notes}
+        onRestoreData={handleRestoreData}
       />
 
       {/* Clean Minimalist Footer */}
