@@ -44,6 +44,8 @@ export interface ExerciseMonthOverride {
   baselineSub?: string;
   currentText?: string;
   currentSub?: string;
+  customStatus?: 'increased' | 'decreased' | 'stable' | 'time';
+  customDiffText?: string;
 }
 
 interface MonthAfterViewProps {
@@ -322,6 +324,8 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
     baselineSub: string;
     currentText: string;
     currentSub: string;
+    customStatus: 'increased' | 'decreased' | 'stable' | 'time';
+    customDiffText: string;
   } | null>(null);
 
   // Annotation edit state
@@ -338,6 +342,8 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         baselineSub: editingExercise.baselineSub.trim(),
         currentText: editingExercise.currentText.trim(),
         currentSub: editingExercise.currentSub.trim(),
+        customStatus: editingExercise.customStatus,
+        customDiffText: editingExercise.customDiffText.trim(),
       },
     }));
     setEditingExercise(null);
@@ -382,32 +388,32 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
   const computeDayComparison = (dayToCompare: WorkoutDay) => {
     return dayToCompare.exercises.map((ex) => {
       if (ex.isTimeBased) {
-        const isCompleted = currentLogs[ex.id]?.[0]?.completed;
-        let status: 'increased' | 'decreased' | 'stable' = isCompleted ? 'increased' : 'stable';
+        let status: 'increased' | 'decreased' | 'stable' | 'time' = 'time';
 
         let baselineText = ex.prescription;
         let baselineSub = '';
         let currentText = ex.prescription;
         let currentSub = '';
+        let defaultDiffText = 'Cardio';
 
         if (ex.id === 'g1_ex1') {
           baselineText = '10:00 min';
           baselineSub = 'Pend. 4 • Vel. 8.5';
           currentText = '10:30 min';
           currentSub = 'Resist. 7:30 → 10:30';
-          status = 'increased';
+          defaultDiffText = '10:30 min';
         } else if (ex.id === 'g1_ex10') {
           baselineText = '10:30 min';
           baselineSub = 'Livello 3';
           currentText = '10:30 min';
           currentSub = 'Ultimi min. Livello 4';
-          status = 'increased';
+          defaultDiffText = 'Liv. 3-4';
         } else if (ex.id === 'g2_ex8') {
           baselineText = '30 sec';
           baselineSub = 'Plank';
           currentText = '30 sec';
           currentSub = 'Tenuta core';
-          status = 'stable';
+          defaultDiffText = '30 sec';
         }
 
         // Apply user custom override if present
@@ -417,7 +423,12 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
           if (override.baselineSub !== undefined) baselineSub = override.baselineSub;
           if (override.currentText !== undefined && override.currentText !== '') currentText = override.currentText;
           if (override.currentSub !== undefined) currentSub = override.currentSub;
+          if (override.customStatus) status = override.customStatus;
         }
+
+        const displayDiffText = override?.customDiffText && override.customDiffText.trim() !== ''
+          ? override.customDiffText.trim()
+          : defaultDiffText;
 
         return {
           exercise: ex,
@@ -430,6 +441,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
           currentSub,
           diff: 0,
           status,
+          displayDiffText,
           isOverridden: !!override,
         };
       }
@@ -438,7 +450,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
       const baseline = parseFloat(baselineWeights[ex.id] || String(ex.defaultWeightKg || 0)) || 0;
       const diff = +(current - baseline).toFixed(1);
 
-      let status: 'increased' | 'decreased' | 'stable' = 'stable';
+      let status: 'increased' | 'decreased' | 'stable' | 'time' = 'stable';
       if (diff > 0) status = 'increased';
       else if (diff < 0) status = 'decreased';
 
@@ -447,6 +459,10 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
       let currentText = current > 0 ? `${current} kg` : 'Corpo libero';
       let currentSub = ex.id === 'g1_ex5' ? '(un po’ pesanti)' : ex.id === 'g1_ex6' ? '(leggermente pesanti)' : '';
 
+      let defaultDiffText = 'Invariato';
+      if (diff > 0) defaultDiffText = `+${diff} kg`;
+      else if (diff < 0) defaultDiffText = `${diff} kg`;
+
       // Apply user custom override if present
       const override = customOverrides[ex.id];
       if (override) {
@@ -454,7 +470,12 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         if (override.baselineSub !== undefined) baselineSub = override.baselineSub;
         if (override.currentText !== undefined && override.currentText !== '') currentText = override.currentText;
         if (override.currentSub !== undefined) currentSub = override.currentSub;
+        if (override.customStatus) status = override.customStatus;
       }
+
+      const displayDiffText = override?.customDiffText && override.customDiffText.trim() !== ''
+        ? override.customDiffText.trim()
+        : defaultDiffText;
 
       return {
         exercise: ex,
@@ -467,6 +488,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         currentSub,
         diff,
         status,
+        displayDiffText,
         isOverridden: !!override,
       };
     });
@@ -490,6 +512,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         currentText: item.currentText,
         currentSub: item.currentSub,
         status: item.status,
+        customDiffText: item.displayDiffText,
         isTimeBased: item.isTimeBased,
       })),
     }));
@@ -603,6 +626,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
 
   const [viewingPeriod, setViewingPeriod] = useState<WorkoutPeriodSnapshot | null>(null);
   const [editingPeriodMeta, setEditingPeriodMeta] = useState<WorkoutPeriodSnapshot | null>(null);
+  const [deletingPeriodId, setDeletingPeriodId] = useState<string | null>(null);
 
   const handleOpenCreatePeriodModal = () => {
     let start = '01/11/2026';
@@ -652,7 +676,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
 
   const countIncreased = exercisesComparison.filter((e) => e.status === 'increased').length;
   const countDecreased = exercisesComparison.filter((e) => e.status === 'decreased').length;
-  const countStable = exercisesComparison.filter((e) => e.status === 'stable').length;
+  const countStable = exercisesComparison.filter((e) => e.status === 'stable' || e.status === 'time').length;
 
   // Filter annotations for this day
   const dayAnnotations = annotations.filter((a) => a.dayId === selectedDayId);
@@ -912,7 +936,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
               </div>
 
               <div className="divide-y divide-zinc-900">
-                {exercisesComparison.map(({ exercise, isTimeBased, baselineText, baselineSub, currentText, currentSub, diff, status, isOverridden }) => (
+                {exercisesComparison.map(({ exercise, isTimeBased, baselineText, baselineSub, currentText, currentSub, status, displayDiffText, isOverridden }) => (
                   <div
                     key={exercise.id}
                     className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition"
@@ -978,24 +1002,25 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
 
                       {/* Status Badge */}
                       <div className="w-24 sm:w-28 text-right">
-                        {isTimeBased ? (
+                        {status === 'time' || (isTimeBased && status !== 'increased' && status !== 'decreased') ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold">
-                            {exercise.id === 'g1_ex1' ? '10:30 min' : exercise.id === 'g1_ex10' ? 'Liv. 3-4' : 'Attivo'}
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{displayDiffText}</span>
                           </span>
                         ) : status === 'increased' ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-bold">
                             <TrendingUp className="w-3.5 h-3.5" />
-                            <span>+{diff} kg</span>
+                            <span>{displayDiffText}</span>
                           </span>
                         ) : status === 'decreased' ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold">
                             <TrendingDown className="w-3.5 h-3.5" />
-                            <span>{diff} kg</span>
+                            <span>{displayDiffText}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-xs font-bold">
                             <Minus className="w-3 h-3" />
-                            <span>Invariato</span>
+                            <span>{displayDiffText || 'Invariato'}</span>
                           </span>
                         )}
                       </div>
@@ -1010,10 +1035,12 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                             baselineSub,
                             currentText,
                             currentSub,
+                            customStatus: status,
+                            customDiffText: displayDiffText,
                           })
                         }
                         className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-zinc-400 hover:text-amber-400 transition cursor-pointer active:scale-95 shadow-sm"
-                        title="Modifica testo e dati di questo esercizio"
+                        title="Modifica testo, carichi e stato di questo esercizio"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
@@ -1256,10 +1283,31 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
 
-                        {!p.isInitialBaseline && (
+                        {deletingPeriodId === p.id ? (
+                          <div className="flex items-center gap-1.5 bg-red-950/80 border border-red-500/60 p-1 rounded-xl animate-fade-in">
+                            <span className="text-[10px] text-red-300 font-bold px-1">Eliminare?</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleDeletePeriod(p.id);
+                                setDeletingPeriodId(null);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[10px] font-black cursor-pointer shadow"
+                            >
+                              ✓ Sì
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingPeriodId(null)}
+                              className="px-2 py-1 rounded-lg bg-zinc-800 text-zinc-300 text-[10px] font-semibold cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => handleDeletePeriod(p.id)}
+                            onClick={() => setDeletingPeriodId(p.id)}
                             className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-400 hover:text-red-400 transition cursor-pointer"
                             title="Elimina periodo"
                           >
@@ -1289,36 +1337,52 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
         )}
       </main>
 
-      {/* Modal 1: Edit Exercise Text & Values in Un Mese Dopo */}
+      {/* Full Screen View 1: Edit Exercise Text & Values in Un Mese Dopo */}
       {editingExercise && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                  <Edit3 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-white">
-                    Modifica Testo & Dati
-                  </h3>
-                  <p className="text-xs text-amber-400 font-medium">
-                    {editingExercise.exerciseName}
-                  </p>
-                </div>
-              </div>
+        <div 
+          className="fixed inset-0 z-50 bg-[#09090b] text-zinc-100 flex flex-col overflow-y-auto animate-fade-in selection:bg-amber-500 selection:text-black"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {/* Top Sticky Header */}
+          <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 backdrop-blur-md px-4 sm:px-6 py-3.5 shrink-0 shadow-lg">
+            <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
               <button
+                type="button"
                 onClick={() => setEditingExercise(null)}
-                className="text-zinc-500 hover:text-white p-1 rounded-lg"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 hover:text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 text-amber-500 stroke-[2.5]" />
+                <span>← Torna a Un Mese Dopo</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  Modifica Esercizio
+                </span>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6 pb-24">
+            {/* Title Banner */}
+            <div className="flex items-start gap-3.5 pb-3 border-b border-zinc-800/80">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-lg shadow-amber-950/30">
+                <Edit3 className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  {editingExercise.exerciseName}
+                </h2>
+                <p className="text-xs text-amber-400/90 font-medium">
+                  Modifica testo personalizzato, carichi e badge di miglioramento/diminuzione/tempo a schermo intero.
+                </p>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveExerciseOverride} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleSaveExerciseOverride} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Inizio Mese */}
-                <div className="space-y-2 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+                <div className="space-y-2.5 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
                     Inizio Mese (Valore)
                   </label>
@@ -1332,7 +1396,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                       })
                     }
                     placeholder="es. 5 kg oppure 10:00 min"
-                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none"
                   />
 
                   <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block pt-1">
@@ -1348,12 +1412,12 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                       })
                     }
                     placeholder="es. Pend. 4 • Vel. 8.5 (o vuoto)"
-                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-zinc-300 focus:outline-none"
                   />
                 </div>
 
                 {/* Attuale */}
-                <div className="space-y-2 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+                <div className="space-y-2.5 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
                     Attuale (Valore)
                   </label>
@@ -1367,7 +1431,7 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                       })
                     }
                     placeholder="es. 5 kg oppure 10:30 min"
-                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none"
                   />
 
                   <label className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block pt-1">
@@ -1383,17 +1447,143 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                       })
                     }
                     placeholder="es. (un po’ pesanti) o Resist. 7:30 → 10:30"
-                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-amber-300 focus:outline-none"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-amber-300 focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
+              {/* Stato Personalizzato: Migliorato / Invariato / Diminuito / Cardio */}
+              <div className="space-y-3 p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-300 block">
+                    Stato & Badge (Migliorato / Diminuito / Invariato / Cardio)
+                  </label>
+                  <span className="text-[10px] text-amber-400 font-semibold">
+                    Puoi personalizzarlo tu
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingExercise({
+                        ...editingExercise,
+                        customStatus: 'increased',
+                        customDiffText: editingExercise.customDiffText === 'Invariato' || editingExercise.customDiffText === '' ? '+2.5 kg' : editingExercise.customDiffText,
+                      });
+                    }}
+                    className={`py-2.5 px-1 rounded-xl text-center text-xs font-bold transition flex flex-col items-center gap-1 border cursor-pointer ${
+                      editingExercise.customStatus === 'increased'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="text-[10px]">Migliorato</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingExercise({
+                        ...editingExercise,
+                        customStatus: 'stable',
+                        customDiffText: 'Invariato',
+                      });
+                    }}
+                    className={`py-2.5 px-1 rounded-xl text-center text-xs font-bold transition flex flex-col items-center gap-1 border cursor-pointer ${
+                      editingExercise.customStatus === 'stable'
+                        ? 'bg-zinc-800 border-zinc-500 text-zinc-200 shadow'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <Minus className="w-4 h-4" />
+                    <span className="text-[10px]">Invariato</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingExercise({
+                        ...editingExercise,
+                        customStatus: 'decreased',
+                        customDiffText: editingExercise.customDiffText === 'Invariato' || editingExercise.customDiffText === '' ? '-1 kg' : editingExercise.customDiffText,
+                      });
+                    }}
+                    className={`py-2.5 px-1 rounded-xl text-center text-xs font-bold transition flex flex-col items-center gap-1 border cursor-pointer ${
+                      editingExercise.customStatus === 'decreased'
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-400 shadow'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <TrendingDown className="w-4 h-4" />
+                    <span className="text-[10px]">Diminuito</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingExercise({
+                        ...editingExercise,
+                        customStatus: 'time',
+                        customDiffText: editingExercise.customDiffText === 'Invariato' || editingExercise.customDiffText === '' ? '10:30 min' : editingExercise.customDiffText,
+                      });
+                    }}
+                    className={`py-2.5 px-1 rounded-xl text-center text-xs font-bold transition flex flex-col items-center gap-1 border cursor-pointer ${
+                      editingExercise.customStatus === 'time'
+                        ? 'bg-blue-500/20 border-blue-500 text-blue-400 shadow'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span className="text-[10px]">Tempo</span>
+                  </button>
+                </div>
+
+                {/* Testo / Numero di Miglioramento o Tempo */}
+                <div className="pt-2 space-y-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-amber-300 block">
+                    Numero o Testo Mostrato sul Badge
+                  </label>
+                  <input
+                    type="text"
+                    value={editingExercise.customDiffText}
+                    onChange={(e) =>
+                      setEditingExercise({
+                        ...editingExercise,
+                        customDiffText: e.target.value,
+                      })
+                    }
+                    placeholder="es. +2.5 kg oppure -1 kg oppure 10:30 min oppure Invariato"
+                    className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[10px] text-zinc-500">Suggeriti:</span>
+                    {['+2.5 kg', '+5 kg', '+1 kg', '-1 kg', 'Invariato', '10:30 min', 'Liv. 3-4'].map((sugg) => (
+                      <button
+                        key={sugg}
+                        type="button"
+                        onClick={() =>
+                          setEditingExercise({
+                            ...editingExercise,
+                            customDiffText: sugg,
+                          })
+                        }
+                        className="px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-[10px] font-mono text-zinc-300 transition cursor-pointer"
+                      >
+                        {sugg}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
                 {customOverrides[editingExercise.exerciseId] ? (
                   <button
                     type="button"
                     onClick={() => handleResetExerciseOverride(editingExercise.exerciseId)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 hover:border-red-500/40 text-zinc-400 hover:text-red-400 text-xs font-semibold transition"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-800 hover:border-red-500/40 text-zinc-400 hover:text-red-400 text-xs font-semibold transition cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Ripristina Default</span>
@@ -1406,77 +1596,92 @@ export const MonthAfterView: React.FC<MonthAfterViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setEditingExercise(null)}
-                    className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold"
+                    className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold cursor-pointer"
                   >
                     Annulla
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black transition shadow-lg cursor-pointer active:scale-95"
                   >
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-4 h-4 stroke-[2.5]" />
                     <span>Salva Modifiche</span>
                   </button>
                 </div>
               </div>
             </form>
-          </div>
+          </main>
         </div>
       )}
 
-      {/* Modal 2: Edit Annotation */}
+      {/* Full Screen View 2: Edit Annotation */}
       {editingAnnotation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                  <Edit3 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-white">
-                    Modifica Annotazione
-                  </h3>
-                  <p className="text-xs text-zinc-400">
-                    {editingAnnotation.date} • {editingAnnotation.time} ({editingAnnotation.dayName})
-                  </p>
-                </div>
-              </div>
+        <div 
+          className="fixed inset-0 z-50 bg-[#09090b] text-zinc-100 flex flex-col overflow-y-auto animate-fade-in selection:bg-amber-500 selection:text-black"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {/* Top Sticky Header */}
+          <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 backdrop-blur-md px-4 sm:px-6 py-3.5 shrink-0 shadow-lg">
+            <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
               <button
+                type="button"
                 onClick={() => setEditingAnnotation(null)}
-                className="text-zinc-500 hover:text-white p-1 rounded-lg"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 hover:text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 text-amber-500 stroke-[2.5]" />
+                <span>← Torna a Un Mese Dopo</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  Modifica Nota Mensile
+                </span>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6 pb-24">
+            <div className="flex items-start gap-3.5 pb-3 border-b border-zinc-800/80">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-lg">
+                <Edit3 className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  Modifica Annotazione Mensile
+                </h2>
+                <p className="text-xs text-zinc-400">
+                  {editingAnnotation.date} • {editingAnnotation.time} ({editingAnnotation.dayName})
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleSaveEditedAnnotation} className="space-y-4">
               <textarea
-                rows={4}
+                rows={6}
                 required
                 value={editAnnotationText}
                 onChange={(e) => setEditAnnotationText(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none resize-none leading-relaxed"
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-2xl p-4 text-sm text-white focus:outline-none resize-none leading-relaxed"
               />
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingAnnotation(null)}
-                  className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold"
+                  className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold cursor-pointer"
                 >
                   Annulla
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow cursor-pointer active:scale-95"
                 >
-                  <Save className="w-3.5 h-3.5" />
+                  <Save className="w-4 h-4" />
                   <span>Salva Modifica</span>
                 </button>
               </div>
             </form>
-          </div>
+          </main>
         </div>
       )}
 

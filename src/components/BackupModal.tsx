@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { 
+  ArrowLeft,
   X, 
   Download, 
   Upload, 
@@ -30,6 +31,7 @@ interface BackupModalProps {
     customOverrides?: any;
     workoutCustomizations?: WorkoutCustomizations;
     workoutPeriods?: any;
+    weightPeriods?: any;
   }) => void;
 }
 
@@ -56,6 +58,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
     let customOverrides = {};
     let activeCustomizations = workoutCustomizations || {};
     let workoutPeriods = [];
+    let weightPeriods = [];
 
     try {
       const snapRaw = localStorage.getItem('ironroutine_monthly_snapshots_v2');
@@ -82,6 +85,11 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       if (wpRaw) workoutPeriods = JSON.parse(wpRaw);
     } catch {}
 
+    try {
+      const weightPRaw = localStorage.getItem('ironroutine_weight_periods_v1');
+      if (weightPRaw) weightPeriods = JSON.parse(weightPRaw);
+    } catch {}
+
     return {
       appName: 'IronRoutine PRO',
       version: '2.1',
@@ -96,6 +104,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         customOverrides,
         workoutCustomizations: activeCustomizations,
         workoutPeriods,
+        weightPeriods,
       }
     };
   };
@@ -198,6 +207,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       customOverrides: data.customOverrides,
       workoutCustomizations: data.workoutCustomizations,
       workoutPeriods: data.workoutPeriods,
+      weightPeriods: data.weightPeriods,
     });
 
     setStatusMessage({
@@ -207,30 +217,42 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="p-5 border-b border-zinc-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
-              <Database className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
-                Backup & Sincronizzazione Dati
-              </h2>
-              <p className="text-xs text-zinc-400">
-                Salva o trasferisci la scheda, i pesi, le note e le progressioni
-              </p>
-            </div>
-          </div>
-
+    <div 
+      className="fixed inset-0 z-50 bg-[#09090b] text-zinc-100 flex flex-col overflow-y-auto animate-fade-in selection:bg-red-600 selection:text-white"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
+      {/* Top Sticky Header */}
+      <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 backdrop-blur-md px-4 sm:px-6 py-3.5 shrink-0 shadow-lg">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 hover:text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
           >
-            <X className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-red-500 stroke-[2.5]" />
+            <span>← Torna alla Scheda</span>
           </button>
+
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-600/20 text-red-400 border border-red-500/30">
+            Backup & Sincronizzazione
+          </span>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6 pb-24">
+        {/* Banner */}
+        <div className="flex items-start gap-3.5 pb-2 border-b border-zinc-800/80">
+          <div className="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0 shadow-lg shadow-red-950/30">
+            <Database className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              Backup & Sincronizzazione Dati
+            </h1>
+            <p className="text-xs text-zinc-400">
+              Scarica, esporta o carica tutti i dati dell'app (scheda, carichi, note, peso corporeo e storico) per non perderli mai.
+            </p>
+          </div>
         </div>
 
         {/* Status notification */}
@@ -387,16 +409,22 @@ export const BackupModal: React.FC<BackupModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-zinc-800/80 bg-zinc-950 flex justify-end">
+        {/* Bottom Bar */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-zinc-800 text-xs text-zinc-400">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>I tuoi dati rimangono sempre al sicuro nel browser.</span>
+          </span>
           <button
+            type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold transition"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-750 text-white font-bold transition active:scale-95 cursor-pointer shadow-lg"
           >
-            Chiudi
+            <ArrowLeft className="w-4 h-4 text-red-400 stroke-[2.5]" />
+            <span>← Torna alla Scheda di Allenamento</span>
           </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

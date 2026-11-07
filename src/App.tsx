@@ -20,6 +20,7 @@ import { BodyWeightWidget } from './components/BodyWeightWidget';
 import { HistoryModal } from './components/HistoryModal';
 import { FullPageNotesView } from './components/FullPageNotesView';
 import { MonthAfterView } from './components/MonthAfterView';
+import { FullPageWeightView } from './components/FullPageWeightView';
 import { BackupModal } from './components/BackupModal';
 import { InlineEditable } from './components/InlineEditable';
 import { DaySelector } from './components/DaySelector';
@@ -285,6 +286,7 @@ export default function App() {
     customOverrides?: any;
     workoutCustomizations?: WorkoutCustomizations;
     workoutPeriods?: any;
+    weightPeriods?: any;
   }) => {
     if (restored.logs) {
       setLogs(restored.logs);
@@ -328,6 +330,11 @@ export default function App() {
     if (restored.workoutPeriods) {
       try {
         localStorage.setItem('ironroutine_workout_periods_v1', JSON.stringify(restored.workoutPeriods));
+      } catch {}
+    }
+    if (restored.weightPeriods) {
+      try {
+        localStorage.setItem('ironroutine_weight_periods_v1', JSON.stringify(restored.weightPeriods));
       } catch {}
     }
   };
@@ -427,17 +434,15 @@ export default function App() {
 
   // Reset current day's progress (keeps user saved weights and reps!)
   const handleResetCurrentDay = () => {
-    if (window.confirm(`Vuoi azzerare tutte le spunte per ${currentDay.dayName}? (I tuoi kg e ripetizioni rimangono salvati)`)) {
-      setLogs((prev) => {
-        const next = { ...prev };
-        currentDay.exercises.forEach((ex) => {
-          if (next[ex.id]) {
-            next[ex.id] = next[ex.id].map((s) => ({ ...s, completed: false }));
-          }
-        });
-        return next;
+    setLogs((prev) => {
+      const next = { ...prev };
+      currentDay.exercises.forEach((ex) => {
+        if (next[ex.id]) {
+          next[ex.id] = next[ex.id].map((s) => ({ ...s, completed: false }));
+        }
       });
-    }
+      return next;
+    });
   };
 
   // Compute completed exercises count for the current workout
@@ -486,7 +491,18 @@ export default function App() {
     );
   }
 
-  // 3. STANDARD WORKOUT VIEW
+  // 3. FULL-SCREEN BODY WEIGHT VIEW (Replaces whole screen, dedicated page like MonthAfterView)
+  if (viewMode === 'weight') {
+    return (
+      <FullPageWeightView
+        currentWeight={bodyWeight}
+        onUpdateCurrentWeight={handleUpdateBodyWeight}
+        onBackToWorkout={() => setViewMode('workout')}
+      />
+    );
+  }
+
+  // 4. STANDARD WORKOUT VIEW
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col selection:bg-red-600 selection:text-white">
       {/* Offline Connectivity Toast */}
@@ -543,13 +559,14 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-5 space-y-6">
-        {/* Permanent iPhone-Style Body Weight Widget with Notes and Un Mese Dopo buttons */}
+        {/* Permanent iPhone-Style Body Weight Widget with Notes, Un Mese Dopo and Weight Section buttons */}
         <BodyWeightWidget
           weight={bodyWeight}
           onUpdateWeight={handleUpdateBodyWeight}
           hasNotesForDay={hasNotesForDay}
           onOpenNotes={() => setViewMode('notes')}
           onOpenMonthAfter={() => setViewMode('month-after')}
+          onOpenWeightView={() => setViewMode('weight')}
           activeDayName={currentDay.dayName}
         />
 

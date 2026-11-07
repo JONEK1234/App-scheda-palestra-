@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scale, Plus, Minus, Edit3, Check, TrendingUp, Sparkles, FileText, Clock } from 'lucide-react';
+import { Scale, Plus, Minus, Edit3, Check, TrendingUp, Sparkles, FileText, Clock, Calendar } from 'lucide-react';
 
 interface BodyWeightWidgetProps {
   weight: string;
@@ -7,6 +7,7 @@ interface BodyWeightWidgetProps {
   hasNotesForDay?: boolean;
   onOpenNotes?: () => void;
   onOpenMonthAfter?: () => void;
+  onOpenWeightView?: () => void;
   activeDayName?: string;
 }
 
@@ -16,6 +17,7 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
   hasNotesForDay = false,
   onOpenNotes,
   onOpenMonthAfter,
+  onOpenWeightView,
   activeDayName = 'Lunedì',
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -48,11 +50,15 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
         <div className="flex items-center gap-4">
           <div
             onClick={() => {
-              setInputValue(weight);
-              setIsEditing(true);
+              if (onOpenWeightView) {
+                onOpenWeightView();
+              } else {
+                setInputValue(weight);
+                setIsEditing(true);
+              }
             }}
             className="group relative cursor-pointer select-none"
-            title="Tocca per modificare il tuo peso"
+            title="Tocca per aprire la sezione Peso Corporeo a tutto schermo"
           >
             {/* Round sphere container */}
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-b from-zinc-900 to-zinc-950 p-1.5 shadow-xl border border-zinc-800/80 flex items-center justify-center relative group-hover:scale-105 transition duration-300">
@@ -131,7 +137,7 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
         {/* Right: Schematic Controls (iPhone Style Stepper & Edit) + Note & Un Mese Dopo */}
         <div className="w-full sm:w-auto flex flex-col sm:items-end gap-2.5">
           {isEditing ? (
-            <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 p-1.5 rounded-2xl w-full sm:w-auto">
+            <div className="flex items-center gap-2 bg-zinc-900 border border-red-500/50 p-2 rounded-2xl w-full sm:w-auto shadow-lg animate-fade-in">
               <input
                 type="number"
                 step="0.1"
@@ -141,17 +147,27 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                className="w-20 bg-zinc-950 border border-zinc-700 rounded-xl px-2.5 py-1 text-center font-mono font-bold text-white text-sm focus:outline-none focus:border-red-500"
+                className="w-24 bg-zinc-950 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-center font-mono font-bold text-white text-sm focus:outline-none focus:border-red-500"
                 placeholder="74"
               />
               <span className="text-xs font-bold text-zinc-400">kg</span>
               <button
                 type="button"
                 onClick={handleSave}
-                className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow"
               >
-                <Check className="w-3.5 h-3.5" />
+                <Check className="w-4 h-4 stroke-[2.5]" />
                 <span>Salva</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInputValue(weight);
+                  setIsEditing(false);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition cursor-pointer"
+              >
+                ✕
               </button>
             </div>
           ) : (
@@ -179,18 +195,37 @@ export const BodyWeightWidget: React.FC<BodyWeightWidgetProps> = ({
                 </button>
               </div>
 
-              {/* Edit button */}
+              {/* Edit button: opens full-screen Weight Section */}
               <button
                 type="button"
                 onClick={() => {
-                  setInputValue(weight);
-                  setIsEditing(true);
+                  if (onOpenWeightView) {
+                    onOpenWeightView();
+                  } else {
+                    setInputValue(weight);
+                    setIsEditing(true);
+                  }
                 }}
-                className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shrink-0"
-                title="Modifica peso manualmente"
+                className="px-3 py-2 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shrink-0"
+                title="Apri Sezione Peso a tutto schermo"
               >
                 <Edit3 className="w-3.5 h-3.5 text-red-500" />
-                <span className="hidden sm:inline">Modifica</span>
+                <span>Modifica</span>
+              </button>
+
+              {/* Storico Pesi Button: opens full-screen Weight Section */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenWeightView) {
+                    onOpenWeightView();
+                  }
+                }}
+                className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shrink-0"
+                title="Apri Sezione Storico e Periodi del Peso a tutto schermo"
+              >
+                <Calendar className="w-3.5 h-3.5 text-orange-400" />
+                <span className="hidden sm:inline">Storico Pesi</span>
               </button>
 
               {/* Special Note Button that appears next to the weight increase controls when this day has notes */}

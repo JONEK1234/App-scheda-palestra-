@@ -171,10 +171,8 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
 
               <button
                 onClick={() => {
-                  if (confirm(`Vuoi davvero eliminare la nota "${selectedNote.title}"?`)) {
-                    onDeleteNote(selectedNote.id);
-                    setSelectedNote(null);
-                  }
+                  onDeleteNote(selectedNote.id);
+                  setSelectedNote(null);
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-red-950/40 border border-zinc-800 text-red-400 hover:text-red-300 text-xs font-semibold transition active:scale-95 cursor-pointer"
                 title="Elimina nota definitivamente"
@@ -711,9 +709,7 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        if (confirm(`Vuoi davvero eliminare la nota "${note.title}"?`)) {
-                          onDeleteNote(note.id);
-                        }
+                        onDeleteNote(note.id);
                       }}
                       className="text-zinc-400 hover:text-red-400 p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-red-500/40 transition active:scale-95"
                       title="Elimina nota"
@@ -746,22 +742,43 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
         </div>
       </main>
 
-      {/* Edit Note Modal */}
+      {/* Edit Note Full Screen View */}
       {editingNote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 shadow-2xl p-5 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-amber-400" />
-                <h3 className="text-base font-black text-white">Modifica Nota</h3>
-              </div>
+        <div 
+          className="fixed inset-0 z-50 bg-[#09090b] text-zinc-100 flex flex-col overflow-y-auto animate-fade-in selection:bg-emerald-500 selection:text-black"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {/* Top Sticky Header with Back Arrow Button */}
+          <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 backdrop-blur-md px-4 sm:px-6 py-3.5 shrink-0 shadow-lg">
+            <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setEditingNote(null)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-white"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 hover:text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
               >
-                <X className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
+                <span>← Torna all'Elenco Note</span>
               </button>
+
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                Modifica Nota
+              </span>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6 pb-24">
+            <div className="flex items-start gap-3.5 pb-2 border-b border-zinc-800/80">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0 shadow-lg shadow-amber-950/30">
+                <Edit3 className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  Modifica Nota
+                </h1>
+                <p className="text-xs text-zinc-400">
+                  Aggiorna il titolo, il testo e i dettagli della tua nota a tutto schermo.
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
@@ -774,7 +791,7 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                   required
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none"
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
                 />
               </div>
 
@@ -791,7 +808,7 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                       const dayNames: Record<number, string> = { 1: 'Lunedì', 2: 'Mercoledì', 3: 'Venerdì' };
                       setEditDayName(val ? dayNames[val] : 'Tutte le Giornate');
                     }}
-                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
+                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none cursor-pointer"
                   >
                     <option value="1">Lunedì</option>
                     <option value="2">Mercoledì</option>
@@ -809,7 +826,7 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                     value={editBadge}
                     onChange={(e) => setEditBadge(e.target.value)}
                     placeholder="Es. Inizio Mese, Tecnica"
-                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
                   />
                 </div>
               </div>
@@ -822,7 +839,7 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                   type="text"
                   value={editDate}
                   onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none font-mono"
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none font-mono"
                 />
               </div>
 
@@ -835,28 +852,28 @@ export const FullPageNotesView: React.FC<FullPageNotesViewProps> = ({
                   required
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-xl p-3.5 text-xs sm:text-sm text-white focus:outline-none resize-none leading-relaxed select-text font-sans"
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-amber-500 rounded-2xl p-4 text-xs sm:text-sm text-white focus:outline-none resize-none leading-relaxed select-text font-sans"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingNote(null)}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 text-xs font-semibold"
+                  className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 text-xs font-semibold cursor-pointer"
                 >
                   Annulla
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow-lg flex items-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <Save className="w-3.5 h-3.5" />
+                  <Save className="w-4 h-4 stroke-[2.5]" />
                   <span>Salva Modifiche</span>
                 </button>
               </div>
             </form>
-          </div>
+          </main>
         </div>
       )}
     </div>

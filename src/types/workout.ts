@@ -84,7 +84,7 @@ export interface MonthlyProgressSnapshot {
   annotations: DayMonthlyAnnotation[];
 }
 
-export type ActiveViewMode = 'workout' | 'notes' | 'month-after';
+export type ActiveViewMode = 'workout' | 'notes' | 'month-after' | 'weight';
 
 export interface WorkoutCustomizations {
   appTitle?: string;
@@ -116,7 +116,8 @@ export interface ExercisePeriodRecord {
   baselineSub?: string;
   currentText: string;
   currentSub?: string;
-  status: 'increased' | 'decreased' | 'stable';
+  status: 'increased' | 'decreased' | 'stable' | 'time';
+  customDiffText?: string;
   isTimeBased?: boolean;
 }
 
@@ -137,3 +138,13 @@ export interface WorkoutPeriodSnapshot {
   daysData: DayPeriodRecord[];
   isInitialBaseline?: boolean;
 }
+
+export interface WeightPeriodRecord {
+  id: string;
+  weight: string; // e.g. "74.0"
+  startDate: string; // e.g. "01/11/2026"
+  endDate: string; // e.g. "13/11/2026"
+  notes?: string;
+  createdAt: number;
+}
+

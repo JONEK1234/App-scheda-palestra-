@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Camera, Calendar, Save, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, X, Camera, Calendar, Save, CheckCircle2, Clock } from 'lucide-react';
 
 interface SavePeriodModalProps {
   isOpen: boolean;
@@ -62,33 +62,42 @@ export const SavePeriodModal: React.FC<SavePeriodModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-amber-500/40 p-5 sm:p-6 shadow-2xl space-y-5 overflow-hidden">
-        {/* Glow */}
-        <div className="absolute -top-20 -right-20 w-44 h-44 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 pb-3 border-b border-zinc-800/80">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
-              <Camera className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
-                Salva Versione Scheda
-              </h2>
-              <p className="text-xs text-amber-400 font-medium">
-                Congela la scheda precedente prima di effettuare nuove modifiche
-              </p>
-            </div>
-          </div>
-
+    <div 
+      className="fixed inset-0 z-50 bg-[#09090b] text-zinc-100 flex flex-col overflow-y-auto animate-fade-in selection:bg-amber-500 selection:text-black"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
+      {/* Top Sticky Header */}
+      <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 backdrop-blur-md px-4 sm:px-6 py-3.5 shrink-0 shadow-lg">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="text-zinc-500 hover:text-white p-1 rounded-lg transition"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 hover:text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 text-amber-500 stroke-[2.5]" />
+            <span>← Torna a Un Mese Dopo</span>
           </button>
+
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            Salva Periodo Scheda
+          </span>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6 pb-24">
+        {/* Banner */}
+        <div className="flex items-start gap-3.5 pb-2 border-b border-zinc-800/80">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0 shadow-lg shadow-amber-950/30">
+            <Camera className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              Salva Versione Scheda
+            </h1>
+            <p className="text-xs text-amber-400/90 font-medium">
+              Congela la scheda precedente prima di effettuare nuove modifiche o miglioramenti
+            </p>
+          </div>
         </div>
 
         {/* Educational Info Box */}
@@ -188,12 +197,12 @@ export const SavePeriodModal: React.FC<SavePeriodModalProps> = ({
               type="submit"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black transition active:scale-95 shadow-lg shadow-amber-950/40 cursor-pointer"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 stroke-[2.5]" />
               <span>✓ Salva Periodo nello Storico</span>
             </button>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   );
 };

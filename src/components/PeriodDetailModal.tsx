@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { 
+  ArrowLeft,
   X, 
   Calendar, 
   Clock, 
@@ -30,41 +31,55 @@ export const PeriodDetailModal: React.FC<PeriodDetailModalProps> = ({
   const currentDayData = period.daysData?.find((d) => d.dayId === selectedDayId) || period.daysData?.[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-zinc-950 border border-zinc-800 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-zinc-800/80 bg-zinc-900/60 flex items-start justify-between gap-3 shrink-0">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-amber-400" />
-                <span>Range Date: {period.startDate} → {period.endDate}</span>
-              </span>
+    <div 
+      className="fixed inset-0 z-50 bg-[#09090b] text-zinc-100 flex flex-col overflow-y-auto animate-fade-in selection:bg-amber-500 selection:text-black"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
+      {/* Top Sticky Header */}
+      <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 backdrop-blur-md px-4 sm:px-6 py-3.5 shrink-0 shadow-lg">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 hover:text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
+          >
+            <ArrowLeft className="w-4 h-4 text-amber-500 stroke-[2.5]" />
+            <span>← Torna a Un Mese Dopo</span>
+          </button>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+              <Calendar className="w-3 h-3 text-amber-400" />
+              <span>{period.startDate} → {period.endDate}</span>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6 pb-24">
+        {/* Banner */}
+        <div className="flex items-start gap-3.5 pb-2 border-b border-zinc-800/80">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0 shadow-lg shadow-amber-950/30">
+            <Dumbbell className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                {period.title}
+              </h1>
               {period.isInitialBaseline && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-300">
                   Scheda Iniziale
                 </span>
               )}
             </div>
-
-            <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-              {period.title}
-            </h2>
             <p className="text-xs text-zinc-400">
-              Copia esatta congelata della scheda mantenuta in questo periodo
+              Copia esatta congelata della scheda mantenuta in questo periodo storico.
             </p>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <div className="space-y-4">
           {/* Notes Card if present */}
           {period.notes && (
             <div className="p-3.5 rounded-2xl bg-zinc-900/80 border border-amber-500/30 space-y-1 text-xs">
@@ -167,24 +182,26 @@ export const PeriodDetailModal: React.FC<PeriodDetailModalProps> = ({
                       </div>
 
                       {/* Status */}
-                      <div className="w-20 text-right">
-                        {ex.isTimeBased ? (
-                          <span className="inline-block px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 font-mono text-[11px] font-bold">
-                            Cardio
+                      <div className="w-24 sm:w-28 text-right">
+                        {ex.status === 'time' || ex.isTimeBased ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 font-mono text-[11px] font-bold">
+                            <Clock className="w-3 h-3" />
+                            <span>{ex.customDiffText || 'Cardio'}</span>
                           </span>
                         ) : ex.status === 'increased' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 font-mono text-[11px] font-bold">
                             <TrendingUp className="w-3 h-3" />
-                            <span>Migliorato</span>
+                            <span>{ex.customDiffText || 'Migliorato'}</span>
                           </span>
                         ) : ex.status === 'decreased' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/20 text-rose-400 font-mono text-[11px] font-bold">
                             <TrendingDown className="w-3 h-3" />
-                            <span>Diminuito</span>
+                            <span>{ex.customDiffText || 'Diminuito'}</span>
                           </span>
                         ) : (
-                          <span className="inline-block px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-400 font-mono text-[11px] font-semibold">
-                            Costante
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-400 font-mono text-[11px] font-semibold">
+                            <Minus className="w-2.5 h-2.5" />
+                            <span>{ex.customDiffText || 'Costante'}</span>
                           </span>
                         )}
                       </div>
@@ -196,19 +213,22 @@ export const PeriodDetailModal: React.FC<PeriodDetailModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-zinc-800/80 bg-zinc-900/60 flex items-center justify-between gap-3 shrink-0">
-          <span className="text-xs text-zinc-400 hidden sm:inline">
-            Salvataggio cronologico: scheda congelata dal {period.startDate} al {period.endDate}
+        {/* Bottom Bar */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-zinc-800 text-xs text-zinc-400">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>Salvataggio cronologico: scheda congelata dal {period.startDate} al {period.endDate}</span>
           </span>
           <button
+            type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-750 text-white font-bold transition active:scale-95 cursor-pointer shadow-lg"
           >
-            Chiudi Scheda Salvata
+            <ArrowLeft className="w-4 h-4 text-amber-400 stroke-[2.5]" />
+            <span>← Torna a Un Mese Dopo</span>
           </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
